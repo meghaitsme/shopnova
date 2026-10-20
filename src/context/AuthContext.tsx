@@ -1,10 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react'; // 🚨 THIS IS THE FIX
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged,
-  updateProfile // <-- Import this to save the name
+  updateProfile
 } from 'firebase/auth';
 import { auth } from '../data/firebase';
 
