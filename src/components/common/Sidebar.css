@@ -1,0 +1,555 @@
+/* ============================================================
+   ShopFree Sidebar
+   ============================================================ */
+
+:root {
+  --sidebar-width: 260px;
+  --sidebar-collapsed: 78px;
+  --primary: #0a0e27;
+  --accent: #ffffff;
+  --hover: #1e3a8a;
+  --brand: #3b82f6;
+  --brand-dark: #2563eb;
+  --danger: #ef4444;
+  --bar-width: 5px;
+}
+
+.app-with-sidebar {
+  margin-left: var(--sidebar-width);
+  transition: margin-left 0.4s ease;
+}
+.app-with-sidebar.collapsed {
+  margin-left: var(--sidebar-collapsed);
+}
+
+/* ============================================================
+   SIDEBAR SHELL
+   ============================================================ */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sidebar-width);
+  background: var(--primary);
+  padding: 6px 14px;
+  z-index: 1000;
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: visible;
+}
+.sidebar.collapsed { width: var(--sidebar-collapsed); }
+
+/* ============================================================
+   FULL-HEIGHT BLUE BAR — on the right edge
+   ============================================================ */
+.sidebar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: var(--bar-width);
+  background: linear-gradient(180deg, var(--brand) 0%, var(--brand-dark) 100%);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.45);
+  pointer-events: none;
+  z-index: 5;              /* above the pill so it visibly crosses it */
+}
+
+/* ============================================================
+   LOGO
+   ============================================================ */
+.sidebar .logo-details {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 5;
+}
+.sidebar .logo-details > .bxs-shopping-bag {
+  color: var(--accent);
+  font-size: 28px;
+  min-width: 50px;
+  text-align: center;
+}
+.sidebar .logo-details .logo_name {
+  color: var(--accent);
+  font-size: 22px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity 0.25s ease;
+}
+.sidebar.collapsed .logo_name {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sidebar #btn-toggle {
+  position: absolute;
+  left: 90%;
+  top: 6px;
+  transform: translateX(-50%);
+  color: var(--accent);
+  font-size: 20px;
+  cursor: pointer;
+  height: 40px;
+  width: 40px;
+  line-height: 40px;
+  text-align: center;
+  border-radius: 12px;
+  transition: 0.25s;
+  z-index: 5;
+}
+.sidebar #btn-toggle:hover { background: var(--hover); }
+.sidebar.collapsed #btn-toggle { left: 50%; }
+
+/* ============================================================
+   NAV LIST
+   ============================================================ */
+.sidebar ul.nav-list {
+  margin-top: 10px;
+  list-style: none;
+  padding-left: 0;
+  position: relative;
+  z-index: 2;
+  /* Leave room for the logo (60px) + profile card (~66px) + padding */
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  overflow-x: visible;
+  padding-bottom: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.2) transparent;
+}
+.sidebar ul.nav-list::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar ul.nav-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar ul.nav-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.sidebar ul.nav-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.sidebar ul.nav-list > li {
+  position: relative;
+  margin: 4px 0;
+  border-radius: 12px;
+}
+.sidebar ul.nav-list > li:not(:has(> a.active)) > a:hover {
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 12px;
+}
+
+.sidebar ul.nav-list > li > a {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--accent);
+  padding: 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sidebar ul.nav-list > li > a i {
+  min-width: 40px;
+  font-size: 20px;
+  text-align: center;
+}
+.sidebar ul.nav-list > li > a .link_name {
+  transition: opacity 0.25s ease;
+  font-size: 15px;
+}
+.sidebar.collapsed ul.nav-list > li > a .link_name {
+  opacity: 0;
+  pointer-events: none;
+  width: 0;
+}
+
+/* ============================================================
+   ACTIVE ITEM — pill touches the blue bar
+   ============================================================ */
+
+/* Expanded mode */
+.sidebar:not(.collapsed) ul.nav-list > li > a.active {
+  background: linear-gradient(90deg, var(--brand-dark) 0%, var(--brand) 100%);
+  color: #fff;
+  border-radius: 14px 0 0 14px;   /* rounded left, flat right */
+  margin-right: -14px;             /* extend to sidebar right edge */
+  padding-right: 24px;
+  box-shadow: 0 4px 14px -4px rgba(59, 130, 246, 0.5);
+  position: relative;
+  z-index: 3;
+}
+
+/* Collapsed mode */
+.sidebar.collapsed ul.nav-list > li > a.active {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+  color: #fff;
+  border-radius: 14px 0 0 14px;
+  margin: 4px 0;
+  margin-right: -14px;
+  padding: 10px;
+  padding-right: 24px;
+  box-shadow: 0 4px 12px -4px rgba(59, 130, 246, 0.5);
+  position: relative;
+  z-index: 3;
+}
+.sidebar.collapsed ul.nav-list > li > a.active i {
+  color: #ffffff;
+}
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.sidebar .badge {
+  background: var(--brand);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  margin-left: auto;
+  min-width: 18px;
+  text-align: center;
+}
+.sidebar.collapsed .badge { display: none; }
+
+.sidebar .badge-dot {
+  width: 8px;
+  height: 8px;
+  min-width: 8px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--danger);
+  margin-left: auto;
+}
+.sidebar.collapsed .badge-dot {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+}
+
+/* ============================================================
+   TOOLTIPS
+   ============================================================ */
+.sidebar.collapsed ul.nav-list > li .tooltip {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
+  background: var(--accent);
+  color: var(--primary);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+  margin-left: 14px;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  z-index: 10;
+}
+.sidebar.collapsed ul.nav-list > li:hover .tooltip { opacity: 1; }
+.sidebar:not(.collapsed) ul.nav-list > li .tooltip { display: none; }
+
+/* ============================================================
+   DIVIDER
+   ============================================================ */
+.sidebar ul.nav-list .nav-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  margin: 12px 8px;
+  padding: 0;
+  pointer-events: none;
+}
+
+/* ============================================================
+   SUBMENU
+   ============================================================ */
+.sidebar .has-submenu > a {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  text-decoration: none;
+  padding: 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sidebar .has-submenu > a .submenu-arrow {
+  margin-left: auto;
+  min-width: auto;
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+.sidebar .has-submenu > a .submenu-arrow.rotate { transform: rotate(180deg); }
+.sidebar .has-submenu {
+  position: relative;
+  z-index: 10;             /* sits above profile-details */
+}
+.sidebar .has-submenu .submenu {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  background: rgba(59, 130, 246, 0.08);
+  border-radius: 10px;
+  position: relative;
+  z-index: 20;
+}
+.sidebar .has-submenu .submenu.open {
+  max-height: 400px;
+  padding: 4px 0;
+  margin: 4px 0 6px 0;
+}
+
+.sidebar .has-submenu .submenu li { margin: 2px 0; border-radius: 8px; }
+.sidebar .has-submenu .submenu li:hover { background: var(--hover); }
+.sidebar .has-submenu .submenu li a {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px 8px 24px;
+  color: var(--accent);
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.sidebar .has-submenu .submenu li a i { font-size: 16px; min-width: 32px; }
+.sidebar .has-submenu .submenu li a.active { background: var(--hover); }
+.sidebar.collapsed .has-submenu .submenu { display: none; }
+.sidebar.collapsed .has-submenu > a .submenu-arrow { display: none; }
+.sidebar.collapsed .has-submenu > a .link_name { display: none; }
+
+/* ============================================================
+   PROFILE
+   ============================================================ */
+.sidebar .profile-details {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  background: linear-gradient(90deg, #1e3a8a 0%, #1e40af 100%);
+  padding: 12px 14px;
+  transition: 0.3s;
+}
+.sidebar.collapsed .profile-details {
+  background: none;
+  justify-content: center;
+}
+.sidebar .profile-details img {
+  height: 42px;
+  width: 42px;
+  border-radius: 12px;
+  object-fit: cover;
+}
+.sidebar .profile-details .profile_name,
+.sidebar .profile-details .job {
+  color: var(--accent);
+  font-size: 14px;
+  white-space: nowrap;
+  margin-left: 12px;
+}
+.sidebar .profile-details .job { font-size: 12px; opacity: 0.75; }
+.sidebar.collapsed .profile_info { display: none; }
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+.sidebar-mobile-toggle {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  font-size: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 999;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-with-sidebar, .app-with-sidebar.collapsed { margin-left: 0; }
+  .sidebar { left: -100%; width: var(--sidebar-width); transition: left 0.35s ease; }
+  .sidebar.active { left: 0; }
+  .sidebar.collapsed { width: var(--sidebar-width); }
+  .sidebar.collapsed ul.nav-list > li > a .link_name { opacity: 1; width: auto; }
+  .sidebar.collapsed .logo_name { opacity: 1; }
+  .sidebar.collapsed .profile_info { display: block; }
+  .sidebar.collapsed #btn-toggle { left: 90%; }
+  .sidebar #btn-toggle { display: none; }
+  .sidebar-mobile-toggle { display: flex; }
+  .sidebar-backdrop { display: block; }
+}
+
+
+/* ---------- Ensure profile card sits above nav content ---------- */
+.sidebar .profile-details {
+  z-index: 50;
+  box-shadow: 0 -8px 20px -4px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------- Hide nav-list scrollbar (keeps pill + blue bar seamless) ---------- */
+.sidebar ul.nav-list {
+  /* Firefox */
+  scrollbar-width: none;
+  /* IE / Edge legacy */
+  -ms-overflow-style: none;
+}
+.sidebar ul.nav-list::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* ---------- Ultra-thin scrollbar flush to the blue bar ---------- */
+.sidebar ul.nav-list::-webkit-scrollbar {
+  width: 3px;
+}
+.sidebar ul.nav-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.sidebar ul.nav-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 3px;
+}
+.sidebar ul.nav-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.7);
+}
+.sidebar ul.nav-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.25) transparent;
+  /* Nudge it right against the bar */
+  padding-right: 2px;
+}
+
+/* ---------- Divider spans full width minus pill margin ---------- */
+.sidebar ul.nav-list .nav-divider {
+  margin: 12px 0 !important;
+  margin-right: -14px !important;   /* extend to blue bar */
+}
+
+/* ============================================================
+   FORCE-HIDE nav scrollbar + connect pill to blue bar
+   ============================================================ */
+
+/* Hide the scrollbar completely (with !important to beat earlier rules) */
+.sidebar ul.nav-list {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overflow-x: visible !important;
+  overflow-y: auto !important;
+  padding-right: 0 !important;
+}
+.sidebar ul.nav-list::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* The pill reaches all the way past the scrollbar area to the blue bar */
+.sidebar ul.nav-list > li {
+  margin-right: -14px !important;
+  padding-right: 0 !important;
+}
+.sidebar ul.nav-list > li > a {
+  padding-right: 22px !important;
+}
+
+/* Active pill — extend fully to the sidebar's right edge */
+.sidebar ul.nav-list > li > a.active,
+.sidebar:not(.collapsed) ul.nav-list > li > a.active,
+.sidebar.collapsed ul.nav-list > li > a.active {
+  margin-right: -14px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  padding-right: 24px !important;
+}
+
+/* Non-active items shouldn't extend either */
+.sidebar ul.nav-list > li:not(:has(> a.active)) {
+  margin-right: 0 !important;
+}
+
+
+/* ============================================================
+   DEFINITIVE gap fix — pill to blue bar, no exceptions
+   ============================================================ */
+
+/* Sidebar: no right padding so children can reach the edge */
+.sidebar {
+  padding-right: 0 !important;
+  overflow: visible !important;
+}
+
+/* Nav-list: scrollbar hidden, no clipping, no right padding */
+.sidebar ul.nav-list {
+  overflow-y: auto !important;
+  overflow-x: visible !important;
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.sidebar ul.nav-list::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+}
+
+/* Each li: flush to the right edge (no margin needed since parent has 0 padding) */
+.sidebar ul.nav-list > li {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Link rows: comfortable inner padding */
+.sidebar ul.nav-list > li > a {
+  padding-right: 14px !important;
+}
+
+/* Active pill: extends the FULL width to the blue bar */
+.sidebar ul.nav-list > li > a.active,
+.sidebar:not(.collapsed) ul.nav-list > li > a.active,
+.sidebar.collapsed ul.nav-list > li > a.active {
+  margin-right: 0 !important;
+  padding-right: 14px !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Blue bar sits above so both merge cleanly */
+.sidebar::after {
+  z-index: 100 !important;
+  right: 0 !important;
+}
+
+/* ---------- Sidebar brand logo ---------- */
+.sidebar .brand-logo {
+  width: 30px;
+  height: 30px;
+  min-width: 30px;
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.5));
+}

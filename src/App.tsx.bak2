@@ -1,0 +1,85 @@
+﻿import type { ReactNode } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
+import Navbar from './components/common/Navbar';
+import Sidebar from './components/common/Sidebar';
+import PLP from './pages/customer/PLP';
+import PDP from './pages/customer/PDP';
+import Cart from './pages/customer/Cart';
+import Checkout from './pages/customer/Checkout';
+import OrderSuccess from './pages/customer/OrderSuccess';
+import Login from './pages/customer/Login';
+import Register from './pages/customer/Register';
+import AdminProducts from './pages/admin/Products';
+import AdminOrders from './pages/admin/Orders';
+              <Route path="/admin/messages" element={<Protected admin><AdminMessages /></Protected>} />
+import AdminMessages from './pages/admin/Messages';
+import Profile from './pages/customer/Profile';
+import Services from './pages/customer/Services';
+import Contact from './pages/customer/Contact';
+import AccountSettings from './pages/settings/Account';
+import NotificationSettings from './pages/settings/Notifications';
+import PaymentSettings from './pages/settings/Payment';
+import PrivacySettings from './pages/settings/Privacy';
+import ServiceDetail from './pages/customer/ServiceDetail';
+
+function Protected({ children, admin }: { children: ReactNode; admin?: boolean }) {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (admin && user.role !== 'admin') return <div className="container"><h2>Admin only</h2></div>;
+  return children;
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <CartProvider>
+          <Sidebar />
+          <div className="app-with-sidebar">
+            <Navbar />
+            <Routes>
+
+
+              {/* Store */}
+              <Route path="/products" element={<PLP />} />
+              <Route path="/product/:id" element={<PDP />} />
+              <Route path="/cart" element={<Cart />} />
+              <Route path="/checkout" element={<Protected><Checkout /></Protected>} />
+              <Route path="/order-success" element={<Protected><OrderSuccess /></Protected>} />
+              <Route path="/orders" element={<Protected><OrderSuccess /></Protected>} />
+              <Route path="/wishlist" element={<div className="container"><h2>Wishlist - coming soon</h2></div>} />
+
+              {/* Auth */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+
+              {/* Settings */}
+              <Route path="/settings" element={<Protected><AccountSettings /></Protected>} />
+              <Route path="/settings/account" element={<Protected><AccountSettings /></Protected>} />
+              <Route path="/settings/notifications" element={<Protected><NotificationSettings /></Protected>} />
+              <Route path="/settings/payment" element={<Protected><PaymentSettings /></Protected>} />
+              <Route path="/settings/privacy" element={<Protected><PrivacySettings /></Protected>} />
+
+               {/* Front of house */}
+              <Route path="/" element={<PLP />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/services" element={<Services />} />
+              <Route path="/services/:slug" element={<ServiceDetail />} />
+              <Route path="/contact" element={<Contact />} />
+
+              {/* Admin */}
+              <Route path="/admin/products" element={<Protected admin><AdminProducts /></Protected>} />
+              <Route path="/admin/orders" element={<Protected admin><AdminOrders /></Protected>} />
+
+              {/* Fallback */}
+              <Route path="*" element={<div className="container"><h2>404</h2></div>} />
+            </Routes>
+          </div>
+        </CartProvider>
+      </AuthProvider>
+    </BrowserRouter>
+  );
+}
+

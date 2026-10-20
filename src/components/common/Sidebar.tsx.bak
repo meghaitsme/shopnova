@@ -1,0 +1,216 @@
+﻿import { useEffect, useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useCart } from '../../context/CartContext';
+import './Sidebar.css';
+
+export default function Sidebar() {
+  const [collapsed, setCollapsed] = useState<boolean>(
+    () => localStorage.getItem('sidebarCollapsed') === 'true'
+  );
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  const { user, logout } = useAuth();
+  const { itemCount } = useCart();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Persist collapsed state
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', String(collapsed));
+  }, [collapsed]);
+
+  // Auto-open Settings submenu when navigating into /settings/*
+  useEffect(() => {
+    if (location.pathname.startsWith('/settings')) {
+      setSettingsOpen(true);
+    }
+  }, [location.pathname]);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const closeMobile = () => setMobileOpen(false);
+
+  return (
+    <>
+      <button
+        className="sidebar-mobile-toggle"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open menu"
+      >
+        <i className="bx bx-menu" />
+      </button>
+
+      <nav
+        className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'active' : ''}`}
+      >
+        <div className="logo-details">
+          <i className="bx bxs-shopping-bag" />
+          <span className="logo_name">ShopFree</span>
+          <i
+            className="bx bx-menu"
+            id="btn-toggle"
+            onClick={() => setCollapsed((c) => !c)}
+          />
+        </div>
+
+        <ul className="nav-list">
+          {/* ---------- Front of house ---------- */}
+          <li>
+            <NavLink to="/" end onClick={closeMobile}>
+              <i className="bx bx-home-alt" />
+              <span className="link_name">Home</span>
+            </NavLink>
+            <span className="tooltip">Home</span>
+          </li>
+
+          <li>
+            <NavLink to="/profile" onClick={closeMobile}>
+              <i className="bx bx-user" />
+              <span className="link_name">Profile</span>
+            </NavLink>
+            <span className="tooltip">Profile</span>
+          </li>
+
+          <li>
+            <NavLink to="/services" onClick={closeMobile}>
+              <i className="bx bx-briefcase" />
+              <span className="link_name">Services</span>
+            </NavLink>
+            <span className="tooltip">Services</span>
+          </li>
+
+
+          <li>
+            <NavLink to="/contact" onClick={closeMobile}>
+              <i className="bx bx-envelope" />
+              <span className="link_name">Contact Us</span>
+            </NavLink>
+            <span className="tooltip">Contact Us</span>
+          </li>
+
+          <li className="nav-divider" aria-hidden="true" />
+
+          {/* ---------- Store ---------- */}
+          <li>
+            <NavLink to="/dashboard" end onClick={closeMobile}>
+              <i className="bx bx-grid-alt" />
+              <span className="link_name">Dashboard</span>
+            </NavLink>
+            <span className="tooltip">Dashboard</span>
+          </li>
+
+  
+
+          <li>
+            <NavLink to="/cart" onClick={closeMobile}>
+              <i className="bx bx-cart" />
+              <span className="link_name">Cart</span>
+              {itemCount > 0 && <span className="badge">{itemCount}</span>}
+            </NavLink>
+            <span className="tooltip">Cart</span>
+          </li>
+
+         <li>
+  <NavLink to="/orders" onClick={closeMobile}>
+    <i className="bx bx-package" />
+    <span className="link_name">Orders</span>
+    {user && <span className="badge badge-dot" title="You have active orders" />}
+  </NavLink>
+  <span className="tooltip">Orders</span>
+</li>
+
+          <li>
+            <NavLink to="/wishlist" onClick={closeMobile}>
+              <i className="bx bx-heart" />
+              <span className="link_name">Wishlist</span>
+            </NavLink>
+            <span className="tooltip">Wishlist</span>
+          </li>
+
+          {user?.role === 'admin' && (
+            <li>
+              <NavLink to="/admin/products" onClick={closeMobile}>
+                <i className="bx bx-line-chart" />
+                <span className="link_name">Admin</span>
+              </NavLink>
+              <span className="tooltip">Admin</span>
+            </li>
+          )}
+
+          {/* ---------- Settings with submenu ---------- */}
+          <li className={`has-submenu ${settingsOpen ? 'open' : ''}`}>
+            <a
+              href="#settings"
+              onClick={(e) => {
+                e.preventDefault();
+                setSettingsOpen((o) => !o);
+              }}
+            >
+              <i className="bx bx-cog" />
+              <span className="link_name">Settings</span>
+              <i
+                className={`bx bx-chevron-down submenu-arrow ${
+                  settingsOpen ? 'rotate' : ''
+                }`}
+              />
+            </a>
+            <span className="tooltip">Settings</span>
+
+            <ul className={`submenu ${settingsOpen ? 'open' : ''}`}>
+              <li>
+                <NavLink to="/settings/account" onClick={closeMobile}>
+                  <i className="bx bx-lock-alt" />
+                  <span className="link_name">Account</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/settings/notifications" onClick={closeMobile}>
+                  <i className="bx bx-bell" />
+                  <span className="link_name">Notifications</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/settings/payment" onClick={closeMobile}>
+                  <i className="bx bx-credit-card" />
+                  <span className="link_name">Payment Methods</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/settings/privacy" onClick={closeMobile}>
+                  <i className="bx bx-shield-quarter" />
+                  <span className="link_name">Privacy</span>
+                </NavLink>
+              </li>
+            </ul>
+          </li>
+
+          <li>
+            <a
+              href="#logout"
+              onClick={(e) => { e.preventDefault(); closeMobile(); handleLogout(); }}
+            >
+              <i className="bx bx-log-out" />
+              <span className="link_name">Logout</span>
+            </a>
+            <span className="tooltip">Logout</span>
+          </li>
+        </ul>
+
+        <div className="profile-details">
+          <img src="https://i.pravatar.cc/100" alt="profile" />
+          <div className="profile_info">
+            <div className="profile_name">{user?.name || 'Guest'}</div>
+            <div className="job">{user?.role || 'Visitor'}</div>
+          </div>
+        </div>
+      </nav>
+
+      {mobileOpen && <div className="sidebar-backdrop" onClick={closeMobile} />}
+    </>
+  );
+}
