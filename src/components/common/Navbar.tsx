@@ -76,6 +76,8 @@ export default function Navbar() {
 
         {/* ---------- Settings dropdown ---------- */}
         <div className="nav-dropdown" ref={menuRef}>
+
+          
           <button
             className={`nav-settings ${menuOpen ? 'open' : ''}`}
             onClick={() => setMenuOpen((o) => !o)}
@@ -93,9 +95,9 @@ export default function Navbar() {
               {user ? (
                 <>
                   <Link to="/profile" className="dropdown-item" onClick={closeMenu}>
-                    <i className="bx bx-user" />
-                    <span>My Profile</span>
-                  </Link>
+  <i className="bx bx-user" />
+  <span>My Profile</span>
+</Link>
                   <Link to="/settings/account" className="dropdown-item" onClick={closeMenu}>
                     <i className="bx bx-cog" />
                     <span>Account Settings</span>
