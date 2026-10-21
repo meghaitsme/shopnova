@@ -1,73 +1,91 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { formatPrice } from '../../utils/format';
 
-export default function CartPage() {
-  const { cart, update, remove } = useCart();
+export default function Cart() {
+  const { cart, removeFromCart } = useCart();
+  const navigate = useNavigate();
 
-  if (!cart || cart.items.length === 0) {
+  // Calculate total price safely
+  const totalPrice = cart?.reduce((total: number, item: any) => {
+    return total + (item.price * (item.quantity || 1));
+  }, 0) || 0;
+
+  console.log("🛒 [Cart Page] Items:", cart, "| Total Price:", totalPrice);
+
+  if (!cart || cart.length === 0) {
     return (
-      <div className="container empty-cart">
-        <h2>Your cart is empty</h2>
-        <Link to="/" className="btn-primary">Shop now</Link>
+      <div style={{ padding: '50px', textAlign: 'center' }}>
+        <h2>Your Cart is Empty</h2>
+        <p style={{ color: '#666', marginBottom: '20px' }}>Looks like you haven't added anything yet.</p>
+        <Link to="/products" style={{ backgroundColor: '#2874f0', color: 'white', padding: '10px 20px', textDecoration: 'none', borderRadius: '4px' }}>
+          Continue Shopping
+        </Link>
       </div>
     );
   }
 
   return (
-    <div className="container">
-      <h1>Shopping Cart</h1>
-      <div className="cart-list">
-        {cart.items.map((item: any) => {
-          // 1. Check if the product data is in 'item.product' or 'item.productId'
-          const product = item.product || item.productId;
-          
-          // 2. Safety check: If the product doesn't exist for some reason, skip it
-          if (!product) return null;
-
-          return (
-            <div key={product._id} className="cart-item">
-              <img 
-                src={product.image || 'https://placehold.co/100x100?text=No+Image'} 
-                alt={product.name} 
-                style={{ width: '80px', height: '80px', objectFit: 'cover' }}
-              />
-              <div className="cart-item-info">
-                <Link to={`/product/${product._id}`}>
-                  <h3>{product.name}</h3>
-                </Link>
-                <p>{formatPrice(item.price || product.price)} each</p>
+    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+      
+      {/* LEFT SIDE: Cart Items */}
+      <div style={{ flex: '2', minWidth: '300px' }}>
+        <h2 style={{ borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>Shopping Cart</h2>
+        
+        {cart.map((item: any) => (
+          <div key={item._id} style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #eee', padding: '20px 0' }}>
+            <img 
+              src={item.image || "https://placehold.co/100x100?text=No+Image"} 
+              alt={item.name} 
+              style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '8px' }} 
+            />
+            
+            <div style={{ flex: '1' }}>
+              <h3 style={{ margin: '0 0 5px 0', fontSize: '18px' }}>{item.name}</h3>
+              <p style={{ color: '#666', fontSize: '14px', margin: '0 0 10px 0' }}>{item.category}</p>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <span style={{ fontWeight: 'bold', fontSize: '18px', color: '#2563eb' }}>
+                  {formatPrice(item.price)}
+                </span>
+                
+                <button 
+                  onClick={() => removeFromCart(item._id)}
+                  style={{ backgroundColor: 'transparent', color: 'red', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  Remove
+                </button>
               </div>
-              <input
-                type="number"
-                min={1}
-                value={item.quantity}
-                onChange={(e) => update(product._id, Number(e.target.value))}
-                style={{ width: '60px', padding: '5px' }}
-              />
-              <p className="line-total">
-                {formatPrice((item.price || product.price) * item.quantity)}
-              </p>
-              <button 
-                onClick={() => remove(product._id)} 
-                className="btn-danger"
-                style={{ padding: '8px 12px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-              >
-                Remove
-              </button>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
-      <div className="cart-summary" style={{ marginTop: '20px', padding: '20px', background: 'white', borderRadius: '8px' }}>
-        <h2>Total: {formatPrice(cart.total)}</h2>
-        <Link 
-          to="/checkout" 
-          className="btn-primary"
-          style={{ display: 'inline-block', marginTop: '10px', padding: '10px 20px', background: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px' }}
+
+      {/* RIGHT SIDE: Order Summary */}
+      <div style={{ flex: '1', minWidth: '250px', backgroundColor: '#f9fafb', padding: '20px', borderRadius: '8px', height: 'fit-content' }}>
+        <h3 style={{ borderBottom: '1px solid #ddd', paddingBottom: '10px', marginTop: 0 }}>Price Details</h3>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0' }}>
+          <span>Price ({cart.length} items)</span>
+          <span>{formatPrice(totalPrice)}</span>
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', color: 'green' }}>
+          <span>Delivery Charges</span>
+          <span>FREE</span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '20px 0', borderTop: '1px solid #ddd', paddingTop: '15px', fontWeight: 'bold', fontSize: '18px' }}>
+          <span>Total Amount</span>
+          <span>{formatPrice(totalPrice)}</span>
+        </div>
+
+        <button 
+          onClick={() => navigate('/checkout')}
+          style={{ width: '100%', backgroundColor: '#fb641b', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}
         >
           Proceed to Checkout
-        </Link>
+        </button>
       </div>
     </div>
   );

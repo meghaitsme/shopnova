@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { collection, addDoc } from 'firebase/firestore';
-import { db } from '../firebase'; // Ensure this matches the Firebase config module location
+import { db } from '../data/firebase'; // Ensure this matches the Firebase config module location
 
 const AddProduct = () => {
   const navigate = useNavigate();

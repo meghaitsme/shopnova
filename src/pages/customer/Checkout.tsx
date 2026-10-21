@@ -1,104 +1,141 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
-import { useAuth } from '../../context/AuthContext';
-import { db } from '../../data/firebase';
-// 🚨 ONLY import what we use
-import { collection, addDoc } from 'firebase/firestore'; 
+import { useAuth } from '../../context/AuthContext'; // If you have this
 import { formatPrice } from '../../utils/format';
+import { db } from '../../data/firebase'; // Using Firebase to save the order
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function Checkout() {
   const { cart, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user } = useAuth(); // Get logged-in user
   const navigate = useNavigate();
 
+  // Shipping Form State
+  const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
-  const [postalCode, setPostalCode] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [pincode, setPincode] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const placeOrder = async (e: React.FormEvent) => {
+  // Calculate total
+  const totalPrice = cart?.reduce((total: number, item: any) => {
+    return total + (item.price * (item.quantity || 1));
+  }, 0) || 0;
+
+  // If cart is empty, redirect back
+  if (!cart || cart.length === 0) {
+    navigate('/cart');
+    return null;
+  }
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!cart || cart.items.length === 0 || !user) return;
+    setIsProcessing(true);
+    console.log("📦 [Checkout] Placing order...");
 
-    setLoading(true);
     try {
-      // 1. Create the order object
+      // 1. Save order to Firebase Firestore
       const orderData = {
-        userId: user.uid,
-        userEmail: user.email,
-        items: cart.items,
-        total: cart.total,
-        shippingAddress: { address, city, postalCode },
-        status: 'Processing',
-        createdAt: new Date().toISOString(),
+        userId: user?.uid || 'guest',
+        customerName: name,
+        address: `${address}, ${city} - ${pincode}`,
+        phone: phone,
+        items: cart,
+        totalAmount: totalPrice,
+        status: 'Pending',
+        createdAt: serverTimestamp(),
       };
 
-      // 2. Save to Firebase 'orders' collection
-      console.log("💾 [Checkout] Saving order to Firebase...", orderData);
-      await addDoc(collection(db, 'orders'), orderData);
+      const docRef = await addDoc(collection(db, "orders"), orderData);
+      console.log("✅ [Checkout] Order saved with ID:", docRef.id);
 
-      // 3. Clear the cart
-      if (clearCart) {
-        await clearCart();
-      }
+      // 2. Clear the cart
+      if (clearCart) clearCart(); 
+      localStorage.removeItem('cart');
 
-      alert('Order placed successfully!');
-      navigate('/orders');
+      // 3. Show success and redirect
+      alert(`Order Placed Successfully! Order ID: ${docRef.id}`);
+      navigate('/order-success'); // Make sure you have this route
+
     } catch (error) {
-      console.error('❌ [Checkout] Order failed:', error);
-      alert('Failed to place order. Please try again.');
+      console.error("❌ [Checkout] Error placing order:", error);
+      alert("Failed to place order. Please try again.");
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  if (!cart || cart.items.length === 0) {
-    return (
-      <div className="container" style={{ padding: '20px' }}>
-        <h2>Your cart is empty</h2>
-      </div>
-    );
-  }
-
   return (
-    <div className="container" style={{ maxWidth: '600px', padding: '20px' }}>
-      <h1>Checkout</h1>
+    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
       
-      <div style={{ background: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
-        <h3>Order Summary</h3>
-        {cart.items.map((item: any) => (
-          <div key={item.product._id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-            <span>{item.quantity} x {item.product.name}</span>
-            <span>{formatPrice(item.product.price * item.quantity)}</span>
+      {/* LEFT: Shipping Form */}
+      <div style={{ flex: '2', minWidth: '300px' }}>
+        <h2 style={{ borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>Shipping Address</h2>
+        
+        <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
+          <input 
+            type="text" placeholder="Full Name" required
+            value={name} onChange={(e) => setName(e.target.value)}
+            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <input 
+            type="text" placeholder="Full Address" required
+            value={address} onChange={(e) => setAddress(e.target.value)}
+            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input 
+              type="text" placeholder="City" required
+              value={city} onChange={(e) => setCity(e.target.value)}
+              style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', flex: '1' }}
+            />
+            <input 
+              type="text" placeholder="Pincode / Zip" required
+              value={pincode} onChange={(e) => setPincode(e.target.value)}
+              style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', flex: '1' }}
+            />
+          </div>
+          <input 
+            type="tel" placeholder="Phone Number" required
+            value={phone} onChange={(e) => setPhone(e.target.value)}
+            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
+
+          <h3 style={{ marginTop: '20px' }}>Payment Method</h3>
+          <div style={{ padding: '15px', border: '1px solid #2874f0', borderRadius: '4px', backgroundColor: '#f0f7ff' }}>
+            <input type="radio" checked readOnly style={{ marginRight: '10px' }} />
+            <strong>Cash on Delivery (COD)</strong>
+            <p style={{ margin: '5px 0 0 25px', fontSize: '14px', color: '#666' }}>Pay when your order arrives.</p>
+          </div>
+
+          <button 
+            type="submit" 
+            disabled={isProcessing}
+            style={{ marginTop: '20px', backgroundColor: '#fb641b', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer' }}
+          >
+            {isProcessing ? 'Processing...' : `Place Order - ${formatPrice(totalPrice)}`}
+          </button>
+        </form>
+      </div>
+
+      {/* RIGHT: Order Summary */}
+      <div style={{ flex: '1', minWidth: '250px', backgroundColor: '#f9fafb', padding: '20px', borderRadius: '8px', height: 'fit-content' }}>
+        <h3 style={{ borderBottom: '1px solid #ddd', paddingBottom: '10px', marginTop: 0 }}>Order Summary</h3>
+        
+        {cart.map((item: any) => (
+          <div key={item._id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', marginBottom: '10px' }}>
+            <span>{item.name} x {item.quantity || 1}</span>
+            <span>{formatPrice(item.price * (item.quantity || 1))}</span>
           </div>
         ))}
-        <hr />
-        <h3 style={{ textAlign: 'right' }}>Total: {formatPrice(cart.total)}</h3>
-      </div>
 
-      <form onSubmit={placeOrder} style={{ background: 'white', padding: '20px', borderRadius: '8px' }}>
-        <h3>Shipping Address</h3>
-        <input 
-          type="text" placeholder="Address" required 
-          value={address} onChange={(e) => setAddress(e.target.value)} 
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px' }} 
-        />
-        <input 
-          type="text" placeholder="City" required 
-          value={city} onChange={(e) => setCity(e.target.value)} 
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '4px' }} 
-        />
-        <input 
-          type="text" placeholder="Postal Code" required 
-          value={postalCode} onChange={(e) => setPostalCode(e.target.value)} 
-          style={{ width: '100%', padding: '10px', marginBottom: '20px', border: '1px solid #ccc', borderRadius: '4px' }} 
-        />
-        
-        <button type="submit" disabled={loading} style={{ width: '100%', padding: '15px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer' }}>
-          {loading ? 'Processing...' : `Place Order (${formatPrice(cart.total)})`}
-        </button>
-      </form>
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '20px 0', borderTop: '1px solid #ddd', paddingTop: '15px', fontWeight: 'bold', fontSize: '18px' }}>
+          <span>Total</span>
+          <span>{formatPrice(totalPrice)}</span>
+        </div>
+      </div>
     </div>
   );
 }

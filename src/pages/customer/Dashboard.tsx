@@ -1,135 +1,150 @@
 ﻿import { useEffect, useState } from 'react';
+import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { db } from '../../data/firebase';
+import { formatPrice } from '../../utils/format';
 import { Link } from 'react-router-dom';
-import api from '../../api/axios';
-import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext';
-import type { Product, Order } from '../../types';
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const { itemCount } = useCart();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const [productsRes, ordersRes] = await Promise.all([
-          api.get('/products').catch(() => ({ data: [] })),
-          user ? api.get('/orders/my').catch(() => ({ data: [] })) : Promise.resolve({ data: [] }),
-        ]);
-        if (cancelled) return;
-        const prods = Array.isArray(productsRes.data)
-          ? productsRes.data
-          : productsRes.data?.products || [];
-        const ords = Array.isArray(ordersRes.data) ? ordersRes.data : [];
-        setProducts(prods);
-        setOrders(ords);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [user]);
+  const fetchOrders = async () => {
+    setLoading(true);
+    console.log("🔍 [Admin] Fetching orders from Firebase...");
+    try {
+      const querySnapshot = await getDocs(collection(db, 'orders'));
+      const ordersData = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Sort orders by newest first (if createdAt exists)
+      ordersData.sort((a: any, b: any) => {
+        const timeA = a.createdAt?.toMillis() || 0;
+        const timeB = b.createdAt?.toMillis() || 0;
+        return timeB - timeA;
+      });
 
-  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
+      console.log(`✅ [Admin] Found ${ordersData.length} orders.`);
+      setOrders(ordersData);
+    } catch (error) {
+      console.error("❌ [Admin] Error fetching orders:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  const updateOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      console.log(`🔄 [Admin] Updating order ${orderId} to ${newStatus}...`);
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, { status: newStatus });
+      
+      // Update local state so the UI refreshes instantly
+      setOrders(orders.map(order => 
+        order.id === orderId ? { ...order, status: newStatus } : order
+      ));
+      alert("Order status updated!");
+    } catch (error) {
+      console.error("❌ [Admin] Error updating status:", error);
+      alert("Failed to update status.");
+    }
+  };
+
+  if (loading) return <div style={{ padding: '20px' }}>Loading orders...</div>;
 
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h1>Welcome back, {user?.name || 'Guest'} 👋</h1>
-        <p>Here&apos;s what&apos;s happening in your Shopnova store today.</p>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      
+      {/* Admin Navigation */}
+      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>
+        <h2 style={{ margin: 0 }}>Admin Dashboard</h2>
+        <Link to="/admin/add-product" style={{ padding: '5px 15px', backgroundColor: '#2874f0', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+          + Add New Product
+        </Link>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon blue"><i className="bx bx-package" /></div>
-          <div className="stat-info">
-            <span className="stat-label">Total Products</span>
-            <span className="stat-value">{loading ? '—' : products.length}</span>
-          </div>
-        </div>
+      <h3>Customer Orders ({orders.length})</h3>
 
-        <div className="stat-card">
-          <div className="stat-icon green"><i className="bx bx-cart" /></div>
-          <div className="stat-info">
-            <span className="stat-label">Cart Items</span>
-            <span className="stat-value">{itemCount}</span>
-          </div>
-        </div>
+      {orders.length === 0 ? (
+        <p>No orders placed yet.</p>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left' }}>
+                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Order ID</th>
+                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Customer Details</th>
+                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Items</th>
+                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Total</th>
+                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Status</th>
+                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id} style={{ borderBottom: '1px solid #eee' }}>
+                  
+                  {/* Order ID */}
+                  <td style={{ padding: '12px', fontSize: '12px', color: '#666' }}>
+                    {order.id.substring(0, 8)}...
+                  </td>
 
-        <div className="stat-card">
-          <div className="stat-icon orange"><i className="bx bx-receipt" /></div>
-          <div className="stat-info">
-            <span className="stat-label">My Orders</span>
-            <span className="stat-value">{loading ? '—' : orders.length}</span>
-          </div>
-        </div>
+                  {/* Customer Details */}
+                  <td style={{ padding: '12px' }}>
+                    <strong>{order.customerName}</strong><br/>
+                    <span style={{ fontSize: '12px', color: '#666' }}>{order.phone}</span><br/>
+                    <span style={{ fontSize: '12px', color: '#666' }}>{order.address}</span>
+                  </td>
 
-        <div className="stat-card">
-          <div className="stat-icon purple"><i className="bx bx-dollar-circle" /></div>
-          <div className="stat-info">
-            <span className="stat-label">Total Spent</span>
-            <span className="stat-value">${totalRevenue.toFixed(2)}</span>
-          </div>
-        </div>
-      </div>
+                  {/* Items */}
+                  <td style={{ padding: '12px' }}>
+                    <ul style={{ margin: 0, paddingLeft: '15px', fontSize: '14px' }}>
+                      {order.items.map((item: any, index: number) => (
+                        <li key={index}>{item.name} (x{item.quantity || 1})</li>
+                      ))}
+                    </ul>
+                  </td>
 
-      <div className="dashboard-sections">
-        <section className="dashboard-section">
-          <div className="section-header">
-            <h2>Recent Products</h2>
-            <Link to="/products" className="section-link">View all →</Link>
-          </div>
-          {loading ? (
-            <p className="muted">Loading…</p>
-          ) : products.length === 0 ? (
-            <p className="muted">No products yet.</p>
-          ) : (
-            <ul className="mini-list">
-              {products.slice(0, 5).map((p) => (
-                <li key={p._id}>
-                  <Link to={`/product/${p._id}`}>
-                    <img src={p.image || 'https://picsum.photos/60'} alt={p.name} />
-                    <div>
-                      <strong>{p.name}</strong>
-                      <span>${p.price?.toFixed(2)}</span>
-                    </div>
-                  </Link>
-                </li>
+                  {/* Total */}
+                  <td style={{ padding: '12px', fontWeight: 'bold' }}>
+                    {formatPrice(order.totalAmount)}
+                  </td>
+
+                  {/* Status Badge */}
+                  <td style={{ padding: '12px' }}>
+                    <span style={{ 
+                      padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold',
+                      backgroundColor: order.status === 'Pending' ? '#fef3c7' : order.status === 'Shipped' ? '#dbeafe' : '#d1fae5',
+                      color: order.status === 'Pending' ? '#b45309' : order.status === 'Shipped' ? '#1e40af' : '#065f46'
+                    }}>
+                      {order.status}
+                    </span>
+                  </td>
+
+                  {/* Action Dropdown */}
+                  <td style={{ padding: '12px' }}>
+                    <select 
+                      value={order.status} 
+                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
+                      style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </td>
+                </tr>
               ))}
-            </ul>
-          )}
-        </section>
-
-        <section className="dashboard-section">
-          <div className="section-header">
-            <h2>Recent Orders</h2>
-            <Link to="/orders" className="section-link">View all →</Link>
-          </div>
-          {loading ? (
-            <p className="muted">Loading…</p>
-          ) : orders.length === 0 ? (
-            <p className="muted">No orders yet.</p>
-          ) : (
-            <ul className="mini-list">
-              {orders.slice(0, 5).map((o) => (
-                <li key={o._id}>
-                  <div className="order-row">
-                    <div>
-                      <strong>#{o._id.slice(-6).toUpperCase()}</strong>
-                      <span>{new Date(o.createdAt).toLocaleDateString()}</span>
-                    </div>
-                    <span className={`status status-${o.status}`}>{o.status}</span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

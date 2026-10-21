@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../data/firebase';
 import { useAuth } from './AuthContext';
+import type { Product } from '../types';
 
 const CartContext = createContext<any>(undefined);
 
@@ -62,30 +63,37 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // 3. Add to Cart
-  const addToCart = async (product: any) => {
-    console.log("➕ [Cart] Adding product:", product.name);
-    const newItems = [...cart.items];
-    const existing = newItems.find((i: any) => i.product._id === product._id);
-    
-    if (existing) {
-      existing.quantity += 1;
-      console.log("🔄 [Cart] Increased quantity for:", product.name);
-    } else {
-      newItems.push({ product, quantity: 1 });
-      console.log("🆕 [Cart] Added new item:", product.name);
-    }
-    
-    const total = newItems.reduce((acc: number, item: any) => acc + (item.product.price * item.quantity), 0);
-    await saveCart({ items: newItems, total });
-  };
+  // Inside CartContext.tsx
+const addToCart = (product: Product) => {
+  const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+  
+  // Check if item already exists
+  const existingItem = currentCart.find((item: Product) => item._id === product._id);
+  
+  if (existingItem) {
+    // Optional: Handle quantity here if you want
+    alert("Item already in cart!");
+    return;
+  }
+
+  const updatedCart = [...currentCart, product];
+  localStorage.setItem('cart', JSON.stringify(updatedCart));
+  setCart(updatedCart);
+  alert(`${product.name} added to cart!`);
+};
 
   // 4. Remove from Cart
-  const remove = async (productId: string) => {
-    console.log("🗑️ [Cart] Removing product ID:", productId);
-    const newItems = cart.items.filter((i: any) => i.product._id !== productId);
-    const total = newItems.reduce((acc: number, item: any) => acc + (item.product.price * item.quantity), 0);
-    await saveCart({ items: newItems, total });
-  };
+  const removeFromCart = (productId: string) => {
+  // Get current cart from local storage
+  const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
+  
+  // Filter out the item to be removed
+  const updatedCart = currentCart.filter((item: any) => item._id !== productId);
+  
+  // Save back to local storage and update state
+  localStorage.setItem('cart', JSON.stringify(updatedCart));
+  setCart(updatedCart);
+};
 
   // 5. Clear Cart
   const clearCart = async () => {
@@ -105,7 +113,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   // 🚨 FIX: Added 'clearCart' to the value object
   return (
-    <CartContext.Provider value={{ cart, addToCart, update, remove, clearCart }}>
+    <CartContext.Provider value={{ cart, addToCart, update, remove: removeFromCart, clearCart }}>
       {children}
     </CartContext.Provider>
   );
