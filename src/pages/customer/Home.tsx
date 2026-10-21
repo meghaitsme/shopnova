@@ -2,14 +2,10 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../data/firebase';
-import { useAuth } from '../../context/AuthContext';
 import ProductCard from '../../components/product/ProductCard';
 import type { Product } from '../../types';
 
 export default function Home() {
-  const { user } = useAuth();
-  const isAdmin = user?.email === 'admin@test.com';
-  
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -33,27 +29,13 @@ export default function Home() {
   }, []);
 
   return (
-    <div style={{ backgroundColor: '#f1f3f6', minHeight: '100vh', paddingBottom: '50px' }}>
+    <div style={{ backgroundColor: '#f1f3f6', minHeight: '100vh' }}>
       
       {/* 🟢 HERO BANNER (Flipkart Style) */}
-      <div style={{ 
-        backgroundColor: '#2874f0', 
-        color: 'white', 
-        padding: '60px 20px', 
-        textAlign: 'center' 
-      }}>
+      <div style={{ backgroundColor: '#2874f0', color: 'white', padding: '60px 20px', textAlign: 'center' }}>
         <h1 style={{ fontSize: '40px', margin: '0 0 15px 0', fontWeight: 'bold' }}>Welcome to ShopNova</h1>
         <p style={{ fontSize: '18px', marginBottom: '25px', opacity: 0.9 }}>Discover the best products at unbeatable prices.</p>
-        <Link to="/products" style={{ 
-          backgroundColor: '#fb641b', 
-          color: 'white', 
-          padding: '12px 30px', 
-          textDecoration: 'none', 
-          borderRadius: '4px', 
-          fontSize: '16px', 
-          fontWeight: 'bold',
-          display: 'inline-block'
-        }}>
+        <Link to="/products" style={{ backgroundColor: '#fb641b', color: 'white', padding: '12px 30px', textDecoration: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold' }}>
           Shop Now
         </Link>
       </div>
@@ -61,15 +43,7 @@ export default function Home() {
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
         
         {/* 🟢 CATEGORY SECTION */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-around', 
-          backgroundColor: 'white', 
-          padding: '20px', 
-          marginTop: '-20px', 
-          borderRadius: '8px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
-        }}>
+        <div style={{ display: 'flex', justifyContent: 'space-around', backgroundColor: 'white', padding: '20px', marginTop: '-20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
           <Link to="/products?category=Electronics" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
             <div style={{ fontSize: '30px', marginBottom: '5px' }}>📱</div>
             <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Electronics</span>
@@ -85,7 +59,7 @@ export default function Home() {
         </div>
 
         {/* 🟢 FEATURED PRODUCTS GRID */}
-        <div style={{ marginTop: '30px' }}>
+        <div style={{ marginTop: '30px', paddingBottom: '50px' }}>
           <h2 style={{ fontSize: '22px', marginBottom: '20px', color: '#333' }}>Featured Products</h2>
           
           {loading ? (
@@ -95,28 +69,13 @@ export default function Home() {
               <p style={{ color: '#666' }}>No products found in the database yet.</p>
             </div>
           ) : (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
-              gap: '20px' 
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
               {products.map((product) => (
                 <ProductCard key={product._id} product={product} />
               ))}
             </div>
           )}
         </div>
-
-        {/* Admin Button (Only visible to you) */}
-        {isAdmin && (
-          <div style={{ marginTop: '40px', textAlign: 'center' }}>
-            <Link to="/admin/add-product">
-              <button style={{ backgroundColor: '#10b981', color: 'white', padding: '12px 25px', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold' }}>
-                + Add New Product (Admin)
-              </button>
-            </Link>
-          </div>
-        )}
 
       </div>
     </div>
