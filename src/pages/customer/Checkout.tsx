@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
-import { useAuth } from '../../context/AuthContext'; // If you have this
+import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../utils/format';
-import { db } from '../../data/firebase'; // Using Firebase to save the order
+import { db } from '../../data/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function Checkout() {
   const { cart, clearCart } = useCart();
-  const { user } = useAuth(); // Get logged-in user
+  const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Shipping Form State
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -19,24 +18,15 @@ export default function Checkout() {
   const [phone, setPhone] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Calculate total
-  const totalPrice = cart?.reduce((total: number, item: any) => {
-    return total + (item.price * (item.quantity || 1));
-  }, 0) || 0;
+  const totalPrice = cart?.reduce((total: number, item: any) => total + (item.price * (item.quantity || 1)), 0) || 0;
 
-  // If cart is empty, redirect back
-  if (!cart || cart.length === 0) {
-    navigate('/cart');
-    return null;
-  }
-
+  // ✅ ONLY ONE handlePlaceOrder function now
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
     console.log("📦 [Checkout] Placing order...");
 
     try {
-      // 1. Save order to Firebase Firestore
       const orderData = {
         userId: user?.uid || 'guest',
         customerName: name,
@@ -48,24 +38,30 @@ export default function Checkout() {
         createdAt: serverTimestamp(),
       };
 
+      console.log("Order Data to save:", orderData);
+      
       const docRef = await addDoc(collection(db, "orders"), orderData);
       console.log("✅ [Checkout] Order saved with ID:", docRef.id);
 
-      // 2. Clear the cart
       if (clearCart) clearCart(); 
       localStorage.removeItem('cart');
 
-      // 3. Show success and redirect
       alert(`Order Placed Successfully! Order ID: ${docRef.id}`);
-      navigate('/order-success'); // Make sure you have this route
+      navigate('/order-success'); 
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("❌ [Checkout] Error placing order:", error);
-      alert("Failed to place order. Please try again.");
+      alert(`Failed to place order: ${error.message}`); 
     } finally {
       setIsProcessing(false);
     }
   };
+
+  // Protect the route if the cart is empty
+  if (!cart || cart.length === 0) {
+    navigate('/cart');
+    return null;
+  }
 
   return (
     <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
