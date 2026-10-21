@@ -1,7 +1,8 @@
 import axios from 'axios';
 
+// ✅ CRITICAL FIX: Use environment variable for production, fallback to localhost for dev
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000/api',
 });
 
 api.interceptors.request.use((config) => {
@@ -21,5 +22,3 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
-
-/*Open frontend/src/api/axios.ts. You must tell Axios to grab the token from localStorage and attach it to the Authorization header for every request. This is what makes the "Add to Cart" button work. */

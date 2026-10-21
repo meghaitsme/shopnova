@@ -1,7 +1,7 @@
 // Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
-import { getAuth } from "firebase/auth"; // 1. Import getAuth
+import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -12,16 +12,11 @@ const firebaseConfig = {
   messagingSenderId: "1096921989678",
   appId: "1:1096921989678:web:3d2dd3435fa090e84555bf"
 };
-console.log("Project ID:", firebaseConfig.projectId);
+
+console.log("🔥 Firebase Project ID:", firebaseConfig.projectId);
 
 const app = initializeApp(firebaseConfig);
 
-// Notice the variable name here is 'db'
+// ✅ CRITICAL FIX: Add 'export' before 'const db'
 export const db = getFirestore(app); 
-export const auth = getAuth(app); // 2. Export auth!
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Initialize Firebase
-//export const app = initializeApp(firebaseConfig);
-
+export const auth = getAuth(app);

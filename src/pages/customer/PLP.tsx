@@ -1,7 +1,7 @@
 import { createElement, useEffect, useState } from 'react';
 import type { Product } from '../../types';
 import ProductCard from '../../components/product/ProductCard';
-import api from '../../api/axios';
+import api from '../../api/axios'; // We will keep this for Railway later
 import { db } from '../../data/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
@@ -14,40 +14,56 @@ export default function PLP() {
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
+      console.log("🔍 [PLP] Starting fetch process...");
+      
+      let firebaseProducts: Product[] = [];
+      let railwayProducts: Product[] = [];
+
+      // 1. Fetch from Firebase (Priority 1 for User)
       try {
-        // 1. Fetch from MongoDB with search/category params
+        console.log("🔥 [PLP] Fetching from Firebase...");
+        const snapshot = await getDocs(collection(db, 'products'));
+        firebaseProducts = snapshot.docs.map(doc => ({
+          _id: doc.id,
+          ...doc.data()
+        })) as Product[];
+        console.log(`✅ [PLP] Firebase returned ${firebaseProducts.length} products.`);
+      } catch (err) {
+        console.error('❌ [PLP] Firebase fetch failed:', err);
+      }
+
+      // 2. Fetch from Railway (MongoDB) - wrapped in its own try/catch so it doesn't break the page
+      try {
+        console.log("🚂 [PLP] Attempting to fetch from Railway backend...");
         const params = new URLSearchParams();
         if (search) params.append('search', search);
         if (category) params.append('category', category);
         
+        // Note: This will only work if VITE_API_URL is set correctly in Vercel
         const { data } = await api.get(`/products?${params.toString()}`);
-        const mongoProducts = data.items || [];
+        railwayProducts = data.items || [];
+        console.log(`✅ [PLP] Railway returned ${railwayProducts.length} products.`);
+      } catch (err) {
+        console.warn('⚠️ [PLP] Railway backend failed or is offline. Relying on Firebase only.', err);
+      }
 
-        // 2. Fetch from Firebase (fetch all, then filter in JS)
-        const snapshot = await getDocs(collection(db, 'products'));
-        const firebaseProducts = snapshot.docs.map(doc => ({
-          _id: doc.id,
-          ...doc.data()
-        })) as Product[];
+      // 3. Combine and display
+      let allProducts = [...firebaseProducts, ...railwayProducts];
 
-        // Filter Firebase products based on search/category
-        const filteredFirebase = firebaseProducts.filter(p => {
+      // Filter locally (since Firebase doesn't do text search easily)
+      if (search || category) {
+        allProducts = allProducts.filter(p => {
           const matchSearch = search ? p.name.toLowerCase().includes(search.toLowerCase()) : true;
           const matchCategory = category ? p.category === category : true;
           return matchSearch && matchCategory;
         });
-
-        // 3. Combine and display
-        setProducts([...mongoProducts, ...filteredFirebase]);
-      } catch (err) {
-        console.error('Failed to load products:', err);
-        setProducts([]);
-      } finally {
-        setLoading(false);
       }
+
+      console.log(`📦 [PLP] Total products to display: ${allProducts.length}`);
+      setProducts(allProducts);
+      setLoading(false);
     };
 
-    // 300ms delay for typing
     const timer = setTimeout(() => {
       fetchProducts();
     }, 300);
