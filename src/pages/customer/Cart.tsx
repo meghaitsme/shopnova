@@ -3,22 +3,15 @@ import { useCart } from '../../context/CartContext';
 import { formatPrice } from '../../utils/format';
 
 export default function Cart() {
-  const { cart, removeFromCart } = useCart();
+  const { cart, removeFromCart, updateQuantity, totalPrice } = useCart();
   const navigate = useNavigate();
-
-  // Calculate total price safely
-  const totalPrice = cart?.reduce((total: number, item: any) => {
-    return total + (item.price * (item.quantity || 1));
-  }, 0) || 0;
-
-  console.log("🛒 [Cart Page] Items:", cart, "| Total Price:", totalPrice);
 
   if (!cart || cart.length === 0) {
     return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
+      <div style={{ padding: '50px', textAlign: 'center', minHeight: '60vh' }}>
         <h2>Your Cart is Empty</h2>
         <p style={{ color: '#666', marginBottom: '20px' }}>Looks like you haven't added anything yet.</p>
-        <Link to="/products" style={{ backgroundColor: '#2874f0', color: 'white', padding: '10px 20px', textDecoration: 'none', borderRadius: '4px' }}>
+        <Link to="/products" style={{ backgroundColor: '#2874f0', color: 'white', padding: '10px 20px', textDecoration: 'none', borderRadius: '4px', fontWeight: 'bold' }}>
           Continue Shopping
         </Link>
       </div>
@@ -49,6 +42,13 @@ export default function Cart() {
                   {formatPrice(item.price)}
                 </span>
                 
+                {/* Quantity Controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', border: '1px solid #ccc', borderRadius: '4px', padding: '2px 10px' }}>
+                  <button onClick={() => updateQuantity(item._id, item.quantity - 1)} style={{ border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer' }}>-</button>
+                  <span>{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item._id, item.quantity + 1)} style={{ border: 'none', background: 'transparent', fontSize: '18px', cursor: 'pointer' }}>+</button>
+                </div>
+
                 <button 
                   onClick={() => removeFromCart(item._id)}
                   style={{ backgroundColor: 'transparent', color: 'red', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
@@ -62,7 +62,7 @@ export default function Cart() {
       </div>
 
       {/* RIGHT SIDE: Order Summary */}
-      <div style={{ flex: '1', minWidth: '250px', backgroundColor: '#f9fafb', padding: '20px', borderRadius: '8px', height: 'fit-content' }}>
+      <div style={{ flex: '1', minWidth: '250px', backgroundColor: '#f9fafb', padding: '20px', borderRadius: '8px', height: 'fit-content', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
         <h3 style={{ borderBottom: '1px solid #ddd', paddingBottom: '10px', marginTop: 0 }}>Price Details</h3>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0' }}>

@@ -1,122 +1,91 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../data/firebase';
-import { useAuth } from './AuthContext';
+import { createContext, useContext, useEffect, useState } from 'react';
 import type { Product } from '../types';
 
-const CartContext = createContext<any>(undefined);
+interface CartItem extends Product {
+  quantity: number;
+}
 
-export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const { user } = useAuth();
-  const [cart, setCart] = useState<any>({ items: [], total: 0 });
+interface CartContextType {
+  cart: CartItem[];
+  addToCart: (product: Product) => void;
+  removeFromCart: (productId: string) => void;
+  updateQuantity: (productId: string, quantity: number) => void;
+  clearCart: () => void;
+  itemCount: number;
+  totalPrice: number;
+}
 
-  // 1. Load Cart on Start
+const CartContext = createContext<CartContextType | undefined>(undefined);
+
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  // 1. Load cart from LocalStorage when the app starts
   useEffect(() => {
-    const fetchCart = async () => {
-      console.log("🛒 [Cart] Fetching cart for:", user ? `User ${user.email}` : "Guest");
-      
-      if (user) {
-        try {
-          const docRef = doc(db, 'carts', user.uid);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            const data = docSnap.data();
-            console.log("✅ [Cart] Loaded from Firebase:", data);
-            setCart(data);
-          } else {
-            console.log("📭 [Cart] No cart found in Firebase.");
-            setCart({ items: [], total: 0 });
-          }
-        } catch (error) {
-          console.error("❌ [Cart] Firebase fetch error:", error);
-        }
-      } else {
-        const saved = localStorage.getItem('guest_cart');
-        if (saved) {
-          console.log("✅ [Cart] Loaded from LocalStorage:", JSON.parse(saved));
-          setCart(JSON.parse(saved));
-        } else {
-          console.log("📭 [Cart] No guest cart found.");
-        }
-      }
-    };
-    fetchCart();
-  }, [user]);
-
-  // 2. Save Cart (Helper)
-  const saveCart = async (newCart: any) => {
-    console.log("💾 [Cart] Saving cart:", newCart);
-    setCart(newCart);
-    
-    if (user) {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
       try {
-        await setDoc(doc(db, 'carts', user.uid), newCart);
-        console.log("✅ [Cart] Saved to Firebase.");
-      } catch (error) {
-        console.error("❌ [Cart] Firebase save error:", error);
+        setCart(JSON.parse(savedCart));
+      } catch (e) {
+        console.error("Failed to parse cart from local storage", e);
       }
-    } else {
-      localStorage.setItem('guest_cart', JSON.stringify(newCart));
-      console.log("✅ [Cart] Saved to LocalStorage.");
     }
+  }, []);
+
+  // 2. Save cart to LocalStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('cart', JSON.stringify(cart));
+  }, [cart]);
+
+  const addToCart = (product: Product) => {
+    setCart((prevCart) => {
+      const existingItem = prevCart.find((item) => item._id === product._id);
+      
+      if (existingItem) {
+        // If item exists, increase quantity
+        return prevCart.map((item) =>
+          item._id === product._id ? { ...item, quantity: item.quantity + 1 } : item
+        );
+      }
+      // If new item, add with quantity 1
+      return [...prevCart, { ...product, quantity: 1 }];
+    });
+    alert(`${product.name} added to cart!`);
   };
 
-  // 3. Add to Cart
-  // Inside CartContext.tsx
-const addToCart = (product: Product) => {
-  const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-  
-  // Check if item already exists
-  const existingItem = currentCart.find((item: Product) => item._id === product._id);
-  
-  if (existingItem) {
-    // Optional: Handle quantity here if you want
-    alert("Item already in cart!");
-    return;
-  }
-
-  const updatedCart = [...currentCart, product];
-  localStorage.setItem('cart', JSON.stringify(updatedCart));
-  setCart(updatedCart);
-  alert(`${product.name} added to cart!`);
-};
-
-  // 4. Remove from Cart
   const removeFromCart = (productId: string) => {
-  // Get current cart from local storage
-  const currentCart = JSON.parse(localStorage.getItem('cart') || '[]');
-  
-  // Filter out the item to be removed
-  const updatedCart = currentCart.filter((item: any) => item._id !== productId);
-  
-  // Save back to local storage and update state
-  localStorage.setItem('cart', JSON.stringify(updatedCart));
-  setCart(updatedCart);
-};
-
-  // 5. Clear Cart
-  const clearCart = async () => {
-    console.log("🗑️ [Cart] Clearing cart...");
-    await saveCart({ items: [], total: 0 });
+    setCart((prevCart) => prevCart.filter((item) => item._id !== productId));
   };
-  
-  // 6. Update Quantity
-  const update = async (productId: string, quantity: number) => {
-    console.log(`🔄 [Cart] Updating quantity for ${productId} to ${quantity}`);
-    const newItems = cart.items.map((i: any) => 
-      i.product._id === productId ? { ...i, quantity } : i
+
+  const updateQuantity = (productId: string, quantity: number) => {
+    if (quantity < 1) return;
+    setCart((prevCart) =>
+      prevCart.map((item) =>
+        item._id === productId ? { ...item, quantity } : item
+      )
     );
-    const total = newItems.reduce((acc: number, item: any) => acc + (item.product.price * item.quantity), 0);
-    await saveCart({ items: newItems, total });
   };
 
-  // 🚨 FIX: Added 'clearCart' to the value object
+  const clearCart = () => {
+    setCart([]);
+    localStorage.removeItem('cart');
+  };
+
+  // Derived values
+  const itemCount = cart.reduce((total, item) => total + item.quantity, 0);
+  const totalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+
   return (
-    <CartContext.Provider value={{ cart, addToCart, update, remove: removeFromCart, clearCart }}>
+    <CartContext.Provider 
+      value={{ cart, addToCart, removeFromCart, updateQuantity, clearCart, itemCount, totalPrice }}
+    >
       {children}
     </CartContext.Provider>
   );
 };
 
-export const useCart = () => useContext(CartContext);
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) throw new Error("useCart must be used within CartProvider");
+  return context;
+};

@@ -5,16 +5,8 @@ import { useCart } from '../../context/CartContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const { cart } = useCart();
+  const { itemCount } = useCart(); // 👈 This is all we need now!
   const navigate = useNavigate();
-
-  // Safe Cart calculation
-  let itemCount = 0;
-  if (Array.isArray(cart)) {
-    itemCount = cart.reduce((count: number, item: any) => count + (item.quantity || 1), 0);
-  } else if (cart?.items && Array.isArray(cart.items)) {
-    itemCount = cart.items.reduce((count: number, item: any) => count + item.quantity, 0);
-  }
 
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -43,12 +35,11 @@ export default function Navbar() {
   const closeMenu = () => setMenuOpen(false);
 
   return (
-    // 🚨 NAV BAR CONTAINER (Flexbox, Dark Background)
     <nav style={{
       display: 'flex', 
       justifyContent: 'space-between', 
       alignItems: 'center', 
-      backgroundColor: '#0f172a', // Dark blue
+      backgroundColor: '#0f172a', 
       padding: '15px 30px',
       color: 'white',
       position: 'relative',
@@ -69,12 +60,12 @@ export default function Navbar() {
         </Link>
 
         {isAdmin && (
-  <>
-    <Link to="/admin/dashboard" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Dashboard</Link>
-    <Link to="/admin/products" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Manage Products</Link>
-    <Link to="/admin/orders" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Orders</Link>
-  </>
-)}
+          <>
+            <Link to="/admin/dashboard" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Dashboard</Link>
+            <Link to="/admin/products" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Manage Products</Link>
+            <Link to="/admin/orders" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Orders</Link>
+          </>
+        )}
 
         {/* Settings Dropdown */}
         <div ref={menuRef} style={{ position: 'relative' }}>
