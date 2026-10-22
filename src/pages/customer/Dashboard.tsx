@@ -1,150 +1,111 @@
 ﻿import { useEffect, useState } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../data/firebase';
 import { formatPrice } from '../../utils/format';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalRevenue: 0,
+    totalOrders: 0,
+    totalProducts: 0,
+    totalUsers: 0,
+  });
   const [loading, setLoading] = useState(true);
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    console.log("🔍 [Admin] Fetching orders from Firebase...");
-    try {
-      const querySnapshot = await getDocs(collection(db, 'orders'));
-      const ordersData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      
-      // Sort orders by newest first (if createdAt exists)
-      ordersData.sort((a: any, b: any) => {
-        const timeA = a.createdAt?.toMillis() || 0;
-        const timeB = b.createdAt?.toMillis() || 0;
-        return timeB - timeA;
-      });
-
-      console.log(`✅ [Admin] Found ${ordersData.length} orders.`);
-      setOrders(ordersData);
-    } catch (error) {
-      console.error("❌ [Admin] Error fetching orders:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchOrders();
+    const fetchStats = async () => {
+      try {
+        // 1. Fetch Orders (for Revenue and Order Count)
+        const ordersSnap = await getDocs(collection(db, 'orders'));
+        let revenue = 0;
+        ordersSnap.forEach((doc) => {
+          const order = doc.data();
+          if (order.status !== 'Cancelled') {
+            revenue += order.totalAmount || 0;
+          }
+        });
+
+        // 2. Fetch Products Count
+        const productsSnap = await getDocs(collection(db, 'products'));
+
+        // 3. Fetch Users Count
+        const usersSnap = await getDocs(collection(db, 'users'));
+
+        setStats({
+          totalRevenue: revenue,
+          totalOrders: ordersSnap.size,
+          totalProducts: productsSnap.size,
+          totalUsers: usersSnap.size,
+        });
+      } catch (error) {
+        console.error("Error fetching stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
   }, []);
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      console.log(`🔄 [Admin] Updating order ${orderId} to ${newStatus}...`);
-      const orderRef = doc(db, 'orders', orderId);
-      await updateDoc(orderRef, { status: newStatus });
-      
-      // Update local state so the UI refreshes instantly
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
-      alert("Order status updated!");
-    } catch (error) {
-      console.error("❌ [Admin] Error updating status:", error);
-      alert("Failed to update status.");
-    }
-  };
-
-  if (loading) return <div style={{ padding: '20px' }}>Loading orders...</div>;
+  if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading Dashboard...</div>;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
       
-      {/* Admin Navigation */}
-      <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>
-        <h2 style={{ margin: 0 }}>Admin Dashboard</h2>
-        <Link to="/admin/add-product" style={{ padding: '5px 15px', backgroundColor: '#2874f0', color: 'white', textDecoration: 'none', borderRadius: '4px' }}>
+      <div style={{ marginBottom: '30px' }}>
+        <h1 style={{ margin: '0 0 10px 0', color: '#1e293b' }}>Admin Dashboard</h1>
+        <p style={{ color: '#64748b' }}>Welcome back! Here is an overview of your store's performance.</p>
+      </div>
+
+      {/* 🟢 STATS CARDS */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
+        gap: '20px', 
+        marginBottom: '40px' 
+      }}>
+        
+        {/* Revenue Card */}
+        <div style={{ backgroundColor: '#10b981', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Total Revenue</h3>
+          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{formatPrice(stats.totalRevenue)}</h2>
+        </div>
+
+        {/* Orders Card */}
+        <div style={{ backgroundColor: '#3b82f6', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Total Orders</h3>
+          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalOrders}</h2>
+        </div>
+
+        {/* Products Card */}
+        <div style={{ backgroundColor: '#8b5cf6', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Total Products</h3>
+          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalProducts}</h2>
+        </div>
+
+        {/* Users Card */}
+        <div style={{ backgroundColor: '#f59e0b', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Registered Users</h3>
+          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalUsers}</h2>
+        </div>
+
+      </div>
+
+      {/* 🟢 QUICK ACTIONS */}
+      <h3 style={{ color: '#1e293b', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>Quick Actions</h3>
+      <div style={{ display: 'flex', gap: '15px', marginTop: '20px', flexWrap: 'wrap' }}>
+        <Link to="/admin/add-product" style={{ backgroundColor: '#2563eb', color: 'white', padding: '12px 24px', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
           + Add New Product
+        </Link>
+        <Link to="/admin/products" style={{ backgroundColor: '#475569', color: 'white', padding: '12px 24px', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
+          Manage Products
+        </Link>
+        <Link to="/admin/orders" style={{ backgroundColor: '#fb641b', color: 'white', padding: '12px 24px', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
+          View Orders
         </Link>
       </div>
 
-      <h3>Customer Orders ({orders.length})</h3>
-
-      {orders.length === 0 ? (
-        <p>No orders placed yet.</p>
-      ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left' }}>
-                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Order ID</th>
-                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Customer Details</th>
-                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Items</th>
-                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Total</th>
-                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Status</th>
-                <th style={{ padding: '12px', borderBottom: '2px solid #ddd' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.map((order) => (
-                <tr key={order.id} style={{ borderBottom: '1px solid #eee' }}>
-                  
-                  {/* Order ID */}
-                  <td style={{ padding: '12px', fontSize: '12px', color: '#666' }}>
-                    {order.id.substring(0, 8)}...
-                  </td>
-
-                  {/* Customer Details */}
-                  <td style={{ padding: '12px' }}>
-                    <strong>{order.customerName}</strong><br/>
-                    <span style={{ fontSize: '12px', color: '#666' }}>{order.phone}</span><br/>
-                    <span style={{ fontSize: '12px', color: '#666' }}>{order.address}</span>
-                  </td>
-
-                  {/* Items */}
-                  <td style={{ padding: '12px' }}>
-                    <ul style={{ margin: 0, paddingLeft: '15px', fontSize: '14px' }}>
-                      {order.items.map((item: any, index: number) => (
-                        <li key={index}>{item.name} (x{item.quantity || 1})</li>
-                      ))}
-                    </ul>
-                  </td>
-
-                  {/* Total */}
-                  <td style={{ padding: '12px', fontWeight: 'bold' }}>
-                    {formatPrice(order.totalAmount)}
-                  </td>
-
-                  {/* Status Badge */}
-                  <td style={{ padding: '12px' }}>
-                    <span style={{ 
-                      padding: '4px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold',
-                      backgroundColor: order.status === 'Pending' ? '#fef3c7' : order.status === 'Shipped' ? '#dbeafe' : '#d1fae5',
-                      color: order.status === 'Pending' ? '#b45309' : order.status === 'Shipped' ? '#1e40af' : '#065f46'
-                    }}>
-                      {order.status}
-                    </span>
-                  </td>
-
-                  {/* Action Dropdown */}
-                  <td style={{ padding: '12px' }}>
-                    <select 
-                      value={order.status} 
-                      onChange={(e) => updateOrderStatus(order.id, e.target.value)}
-                      style={{ padding: '5px', borderRadius: '4px', border: '1px solid #ccc' }}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Shipped">Shipped</option>
-                      <option value="Delivered">Delivered</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
   );
 }
