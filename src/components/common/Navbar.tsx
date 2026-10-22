@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const { itemCount } = useCart(); // 👈 This is all we need now!
+  const { itemCount } = useCart(); 
   const navigate = useNavigate();
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -55,6 +55,12 @@ export default function Navbar() {
       {/* Right Side Links */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '25px', fontSize: '15px' }}>
         
+        {/* 🚨 WISHLIST LINK */}
+        <Link to="/wishlist" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>
+          ❤️ Wishlist
+        </Link>
+
+        {/* 🚨 CART LINK */}
         <Link to="/cart" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>
           Cart ({itemCount})
         </Link>

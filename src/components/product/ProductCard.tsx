@@ -3,6 +3,22 @@ import type { Product } from '../../types';
 import { formatPrice } from '../../utils/format';
 
 export default function ProductCard({ product }: { product: Product }) {
+  
+  // 👈 ADD THE FUNCTION HERE (Inside the component, before return)
+  const addToWishlist = (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevents the Link from triggering
+    
+    const currentWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
+    
+    if (!currentWishlist.find((item: any) => item._id === product._id)) {
+      currentWishlist.push(product);
+      localStorage.setItem('wishlist', JSON.stringify(currentWishlist));
+      alert('Added to wishlist! ❤️');
+    } else {
+      alert('Already in wishlist!');
+    }
+  };
+
   return (
     <div style={{ 
       backgroundColor: 'white',
@@ -11,8 +27,29 @@ export default function ProductCard({ product }: { product: Product }) {
       boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
       transition: 'transform 0.2s, box-shadow 0.2s',
       display: 'flex',
-      flexDirection: 'column'
+      flexDirection: 'column',
+      position: 'relative' // 👈 ADD THIS: So the heart button stays inside the card
     }}>
+      
+      {/* 🚨 HEART BUTTON GOES HERE (Above the image link) */}
+      <button 
+        onClick={addToWishlist}
+        style={{ 
+          position: 'absolute', 
+          top: '10px', 
+          right: '10px', 
+          background: 'white', 
+          border: 'none', 
+          borderRadius: '50%', 
+          padding: '8px', 
+          cursor: 'pointer', 
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+          zIndex: 10 // 👈 Ensures it stays clickable above the image
+        }}
+      >
+        ❤️
+      </button>
+
       {/* Image */}
       <Link to={`/product/${product._id}`}>
         <div style={{ height: '200px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '10px' }}>

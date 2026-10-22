@@ -14,6 +14,7 @@ import Register from './pages/customer/Register';
 import Profile from './pages/customer/Profile';
 import Checkout from './pages/customer/Checkout';
 import OrderSuccess from './pages/customer/OrderSuccess';
+import Wishlist from './pages/customer/Wishlist';
 
 // Admin Pages
 import AddProduct from './pages/AddProduct';
@@ -37,6 +38,7 @@ function AppRoutes() {
       <Route path="/profile" element={<Profile />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/order-success" element={<OrderSuccess />} />
+      <Route path="/wishlist" element={<Wishlist />} />
 
       {/* PROTECTED ADMIN ROUTES */}
       <Route path="/admin/add-product" element={isAdmin ? <AddProduct /> : <Navigate to="/login" />} />
