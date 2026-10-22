@@ -25,7 +25,8 @@ import AdminCoupons from './pages/admin/AdminCoupons';
 
 function AppRoutes() {
   const { user } = useAuth();
-  const isAdmin = user?.email === 'admin@test.com';
+  const isAdmin = user?.isAdmin;
+
 
   return (
     <Routes>
