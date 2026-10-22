@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
-import { formatPrice } from './format';
+import { useCart } from '../context/CartContext'; // 👈 Added this
+import { formatPrice } from '../utils/format';   // 👈 Added this
 
 const WISHLIST_STORAGE_KEY = 'wishlist';
 
@@ -28,7 +28,6 @@ export default function Wishlist() {
   const [wishlistItems, setWishlistItems] = useState<any[]>([]);
   const { addToCart } = useCart(); 
 
-  // Load wishlist on mount
   useEffect(() => {
     setWishlistItems(getWishlist());
   }, []);
