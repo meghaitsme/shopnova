@@ -7,7 +7,7 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore'; // 👈 This fixes the error
 
 interface AuthContextType {
   user: any;
@@ -26,7 +26,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log("🔐 [Auth] State changed. User:", currentUser?.email || "Guest");
-      
       if (currentUser) {
         setUser({
           uid: currentUser.uid,
@@ -38,11 +37,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // ✅ LOGIN FUNCTION
   const login = async (email: string, password: string) => {
     try {
       console.log("🔐 [Auth] Attempting login...");
@@ -50,35 +47,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       console.log("✅ [Auth] Login successful");
     } catch (error) {
       console.error("❌ [Auth] Login failed:", error);
-      throw error; // Throw error so Login.tsx can catch it
+      throw error; 
     }
   };
 
-  // ✅ REGISTER FUNCTION
   const register = async (email: string, password: string, name: string) => {
     try {
       console.log("📝 [Auth] Attempting registration...");
+      
       // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       
-      // 2. Update their display name
+      // 2. Update their display name in Auth
       await updateProfile(userCredential.user, { displayName: name });
       
-      // 3. (Optional) Save their profile in Firestore 'users' collection
+      // 3. SAVE USER TO FIRESTORE DATABASE
       await setDoc(doc(db, 'users', userCredential.user.uid), {
+        uid: userCredential.user.uid,
         name: name,
         email: email,
+        role: 'customer', 
         createdAt: new Date(),
       });
+      console.log("✅ [Auth] User saved to Firestore Database");
 
-      console.log("✅ [Auth] Registration successful");
     } catch (error) {
       console.error("❌ [Auth] Registration failed:", error);
-      throw error; // Throw error so Register.tsx can catch it
+      throw error;
     }
   };
 
-  // ✅ LOGOUT FUNCTION
   const logout = async () => {
     await signOut(auth);
     setUser(null);
