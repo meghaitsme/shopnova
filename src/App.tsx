@@ -21,6 +21,7 @@ import AddProduct from './pages/AddProduct';
 import Dashboard from './pages/admin/Dashboard';
 import Orders from './pages/admin/Orders';
 import AdminProducts from './pages/admin/AdminProducts'; // 👈 1. ADD IMPORT HERE
+import AdminCoupons from './pages/admin/AdminCoupons';
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -47,6 +48,7 @@ function AppRoutes() {
       
       {/* 👈 2. ADD THIS ROUTE HERE */}
       <Route path="/admin/products" element={isAdmin ? <AdminProducts /> : <Navigate to="/login" />} />
+      <Route path="/admin/coupons" element={isAdmin ? <AdminCoupons /> : <Navigate to="/login" />} />
       
     </Routes>
   );

@@ -70,6 +70,7 @@ export default function Navbar() {
             <Link to="/admin/dashboard" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Dashboard</Link>
             <Link to="/admin/products" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Manage Products</Link>
             <Link to="/admin/orders" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Orders</Link>
+            <Link to="/admin/coupons" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Coupons</Link>
           </>
         )}
 
