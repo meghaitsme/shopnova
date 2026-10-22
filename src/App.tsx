@@ -10,7 +10,7 @@ import PLP from './pages/customer/PLP';
 import PDP from './pages/customer/PDP';
 import Cart from './pages/customer/Cart';
 import Login from './pages/customer/Login';
-import Register from './pages/customer/Register'; // 👈 1. CHECK IF THIS IS HERE
+import Register from './pages/customer/Register'; 
 import Profile from './pages/customer/Profile';
 import Checkout from './pages/customer/Checkout';
 import OrderSuccess from './pages/customer/OrderSuccess';
@@ -19,6 +19,7 @@ import OrderSuccess from './pages/customer/OrderSuccess';
 import AddProduct from './pages/AddProduct';
 import Dashboard from './pages/admin/Dashboard';
 import Orders from './pages/admin/Orders';
+import AdminProducts from './pages/admin/AdminProducts'; // 👈 1. ADD IMPORT HERE
 
 function AppRoutes() {
   const { user } = useAuth();
@@ -31,11 +32,8 @@ function AppRoutes() {
       <Route path="/products" element={<PLP />} />
       <Route path="/product/:id" element={<PDP />} />
       <Route path="/cart" element={<Cart />} />
-      
-      {/* 🚨 2. CHECK IF THIS ROUTE IS HERE */}
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} /> 
-      
       <Route path="/profile" element={<Profile />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/order-success" element={<OrderSuccess />} />
@@ -44,6 +42,10 @@ function AppRoutes() {
       <Route path="/admin/add-product" element={isAdmin ? <AddProduct /> : <Navigate to="/login" />} />
       <Route path="/admin/dashboard" element={isAdmin ? <Dashboard /> : <Navigate to="/login" />} />
       <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
+      
+      {/* 👈 2. ADD THIS ROUTE HERE */}
+      <Route path="/admin/products" element={isAdmin ? <AdminProducts /> : <Navigate to="/login" />} />
+      
     </Routes>
   );
 }

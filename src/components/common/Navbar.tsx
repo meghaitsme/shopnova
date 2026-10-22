@@ -69,10 +69,12 @@ export default function Navbar() {
         </Link>
 
         {isAdmin && (
-          <Link to="/admin/dashboard" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>
-            Admin Dashboard
-          </Link>
-        )}
+  <>
+    <Link to="/admin/dashboard" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Dashboard</Link>
+    <Link to="/admin/products" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Manage Products</Link>
+    <Link to="/admin/orders" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Orders</Link>
+  </>
+)}
 
         {/* Settings Dropdown */}
         <div ref={menuRef} style={{ position: 'relative' }}>

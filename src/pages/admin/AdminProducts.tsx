@@ -1,217 +1,113 @@
 import { useEffect, useState } from 'react';
-import { formatPrice } from '../../utils/format';
+import { collection, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db } from '../../data/firebase';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { formatPrice } from '../../utils/format';
+import { Link } from 'react-router-dom';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false); // Track image upload state
-  const [form, setForm] = useState({
-    name: '', description: '', price: 0, image: '', category: 'Electronics', stock: 0
-  });
-  const [editing, setEditing] = useState<string | null>(null);
-  const [error, setError] = useState('');
 
-  const load = async () => {
+  const fetchProducts = async () => {
     setLoading(true);
     try {
-      const snapshot = await getDocs(collection(db, 'products'));
-      const items = snapshot.docs.map(doc => ({
-        _id: doc.id,
+      console.log("🔍 [Admin] Fetching products...");
+      const querySnapshot = await getDocs(collection(db, 'products'));
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
         ...doc.data()
       }));
-      setProducts(items);
-    } catch (err) {
-      console.error(err);
+      setProducts(data);
+    } catch (error) {
+      console.error("❌ [Admin] Error fetching products:", error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-  const resetForm = () => {
-    setForm({ name: '', description: '', price: 0, image: '', category: 'Electronics', stock: 0 });
-    setEditing(null);
-    setError('');
-  };
-
-  // 🚨 NEW: Handle Image Upload via ImgBB
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploading(true);
-    setError('');
+  const handleDelete = async (productId: string, productName: string) => {
+    const confirmDelete = window.confirm(`Are you sure you want to delete "${productName}"?`);
+    if (!confirmDelete) return;
 
     try {
-      // 1. Create form data
-      const formData = new FormData();
-      formData.append('image', file);
-
-      // 2. Send to ImgBB API
-      // 👇 REPLACE THIS WITH YOUR ACTUAL API KEY 👇
-      const apiKey = '5b4a62511b238850dc067806eef80a45'; 
-      const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // 3. ImgBB gives you the direct URL here
-        const imageUrl = data.data.url;
-        setForm((prev) => ({ ...prev, image: imageUrl }));
-        console.log("✅ Image uploaded:", imageUrl);
-      } else {
-        throw new Error(data.error?.message || 'ImgBB upload failed');
-      }
-    } catch (err: any) {
-      console.error("Upload failed", err);
-      setError("Failed to upload image. Please try again.");
-    } finally {
-      setUploading(false);
+      console.log(`🗑️ Deleting product: ${productId}`);
+      await deleteDoc(doc(db, 'products', productId));
+      setProducts(products.filter(p => p.id !== productId)); // Update UI instantly
+      alert("Product deleted successfully!");
+    } catch (error) {
+      console.error("❌ Error deleting product:", error);
+      alert("Failed to delete product.");
     }
   };
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    try {
-      if (editing) {
-        await updateDoc(doc(db, 'products', editing), form);
-      } else {
-        await addDoc(collection(db, 'products'), form);
-      }
-      resetForm();
-      load();
-    } catch (err: any) {
-      setError(err?.message || 'Save failed');
-    }
-  };
-
-  const edit = (p: any) => {
-    setForm({
-      name: p.name,
-      description: p.description,
-      price: p.price,
-      image: p.image,
-      category: p.category,
-      stock: p.stock,
-    });
-    setEditing(p._id);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const del = async (id: string) => {
-    if (!confirm('Delete this product?')) return;
-    try {
-      await deleteDoc(doc(db, 'products', id));
-      load();
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const inputStyle = { width: '100%', padding: 10, marginBottom: 10, border: '1px solid #d1d5db', borderRadius: 8 };
+  if (loading) return <p style={{ padding: '20px' }}>Loading products...</p>;
 
   return (
-    <div className="container">
-      <h1>Admin Products</h1>
+    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h2>Manage Products ({products.length})</h2>
+        <Link to="/admin/add-product" style={{ backgroundColor: '#10b981', color: 'white', padding: '10px 20px', textDecoration: 'none', borderRadius: '4px', fontWeight: 'bold' }}>
+          + Add New Product
+        </Link>
+      </div>
 
-      <form onSubmit={submit} style={{ background: 'white', padding: 24, borderRadius: 12, marginBottom: 32 }}>
-        <h2>{editing ? 'Edit Product' : 'Add New Product'}</h2>
-
-        <input style={inputStyle} placeholder="Name" value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-
-        <textarea style={{ ...inputStyle, minHeight: 80 }} placeholder="Description" value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })} required />
-
-        <input style={inputStyle} type="number" placeholder="Price" value={form.price}
-          onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} required />
-
-        {/* 🚨 NEW: Image Upload Input */}
-        <div style={{ marginBottom: 10 }}>
-          <label style={{ display: 'block', marginBottom: 5, fontWeight: 'bold' }}>Product Image</label>
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={handleImageUpload} 
-            style={{ marginBottom: 5 }} 
-          />
-          {uploading && <p style={{ color: '#2563eb', fontSize: 14 }}>Uploading...</p>}
-          
-          {/* Show a preview if an image is selected */}
-          {form.image && !uploading && (
-            <img src={form.image} alt="Preview" style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, marginTop: 10 }} />
-          )}
-        </div>
-
-        <select style={inputStyle} value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}>
-          <option>Electronics</option>
-          <option>Clothing</option>
-          <option>Books</option>
-        </select>
-
-        <input style={inputStyle} type="number" placeholder="Stock" value={form.stock}
-          onChange={(e) => setForm({ ...form, stock: Number(e.target.value) })} required />
-
-        {error && <p style={{ color: 'red', marginBottom: 12 }}>{error}</p>}
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button type="submit" className="btn-primary" disabled={uploading || !form.image}>
-            {uploading ? 'Wait for upload...' : editing ? 'Update Product' : 'Add Product'}
-          </button>
-          {editing && (
-            <button type="button" onClick={resetForm}
-              style={{ padding: '10px 18px', borderRadius: 8, border: '1px solid #d1d5db', background: 'white', cursor: 'pointer' }}>
-              Cancel
-            </button>
-          )}
-        </div>
-      </form>
-
-      <h2>Existing Products ({products.length})</h2>
-      {loading ? <p>Loading...</p> : (
-        <table style={{ width: '100%', background: 'white', borderRadius: 12, overflow: 'hidden' }}>
-          <thead style={{ background: '#f3f4f6' }}>
-            <tr>
-              <th style={{ padding: 12, textAlign: 'left' }}>Image</th>
-              <th style={{ padding: 12, textAlign: 'left' }}>Name</th>
-              <th style={{ padding: 12, textAlign: 'left' }}>Category</th>
-              <th style={{ padding: 12, textAlign: 'left' }}>Price</th>
-              <th style={{ padding: 12, textAlign: 'left' }}>Stock</th>
-              <th style={{ padding: 12, textAlign: 'left' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p._id} style={{ borderTop: '1px solid #e5e7eb' }}>
-                <td style={{ padding: 12 }}>
-                  <img src={p.image} alt={p.name} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6 }} />
-                </td>
-                <td style={{ padding: 12, fontWeight: 500 }}>{p.name}</td>
-                <td style={{ padding: 12 }}>{p.category}</td>
-                <td style={{ padding: 12 }}>{formatPrice(p.price)}</td>
-                <td style={{ padding: 12 }}>{p.stock}</td>
-                <td style={{ padding: 12 }}>
-                  <button onClick={() => edit(p)}
-                    style={{ marginRight: 8, padding: '6px 12px', borderRadius: 6, border: 'none', background: '#2563eb', color: 'white', cursor: 'pointer' }}>
-                    Edit
-                  </button>
-                  <button onClick={() => del(p._id)}
-                    style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#dc2626', color: 'white', cursor: 'pointer' }}>
-                    Delete
-                  </button>
-                </td>
+      {products.length === 0 ? (
+        <p>No products found.</p>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'white', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f3f4f6', textAlign: 'left', borderBottom: '1px solid #ddd' }}>
+                <th style={{ padding: '15px' }}>Image</th>
+                <th style={{ padding: '15px' }}>Product Name</th>
+                <th style={{ padding: '15px' }}>Category</th>
+                <th style={{ padding: '15px' }}>Price</th>
+                <th style={{ padding: '15px' }}>Stock</th>
+                <th style={{ padding: '15px' }}>Action</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {products.map((product) => (
+                <tr key={product.id} style={{ borderBottom: '1px solid #eee' }}>
+                  <td style={{ padding: '15px' }}>
+                    <img 
+                      src={product.image || "https://placehold.co/50x50?text=No+Image"} 
+                      alt={product.name} 
+                      style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} 
+                    />
+                  </td>
+                  <td style={{ padding: '15px', fontWeight: 'bold' }}>{product.name}</td>
+                  <td style={{ padding: '15px' }}>{product.category}</td>
+                  <td style={{ padding: '15px', color: '#2874f0', fontWeight: 'bold' }}>{formatPrice(product.price)}</td>
+                  <td style={{ padding: '15px' }}>
+                    <span style={{ 
+                      padding: '4px 8px', 
+                      borderRadius: '12px', 
+                      fontSize: '12px', 
+                      backgroundColor: product.stock > 0 ? '#d1fae5' : '#fee2e2',
+                      color: product.stock > 0 ? '#065f46' : '#991b1b'
+                    }}>
+                      {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '15px' }}>
+                    <button 
+                      onClick={() => handleDelete(product.id, product.name)}
+                      style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );
