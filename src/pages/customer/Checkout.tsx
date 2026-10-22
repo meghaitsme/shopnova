@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../utils/format';
 import { db } from '../../data/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 
 export default function Checkout() {
   const { cart, clearCart } = useCart();
@@ -18,7 +18,26 @@ export default function Checkout() {
   const [phone, setPhone] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🚨 FIX: Ensure we calculate the total correctly using the item's quantity
+  // 🚨 AUTO-FILL SAVED ADDRESS
+  useEffect(() => {
+    const fetchSavedAddress = async () => {
+      if (!user?.uid) return;
+      try {
+        const q = query(collection(db, 'users'), where('uid', '==', user.uid));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          const data = snap.docs[0].data();
+          if (data.name) setName(data.name);
+          if (data.address) setAddress(data.address);
+          if (data.phone) setPhone(data.phone);
+        }
+      } catch (error) {
+        console.error("Error fetching saved address:", error);
+      }
+    };
+    fetchSavedAddress();
+  }, [user]);
+
   const totalPrice = cart?.reduce((total: number, item: any) => {
     return total + (item.price * (item.quantity || 1));
   }, 0) || 0;
@@ -35,7 +54,7 @@ export default function Checkout() {
         address: `${address}, ${city} - ${pincode}`,
         phone: phone,
         items: cart,
-        totalAmount: totalPrice, // 👈 This will now be the correct number
+        totalAmount: totalPrice,
         status: 'Pending',
         createdAt: serverTimestamp(),
       };
@@ -59,9 +78,6 @@ export default function Checkout() {
     }
   };
 
-  // ... (Keep the rest of your return JSX exactly as it is)
-
-  // Protect the route if the cart is empty
   if (!cart || cart.length === 0) {
     navigate('/cart');
     return null;
