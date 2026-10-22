@@ -81,7 +81,7 @@ export default function PDP() {
     localStorage.setItem('wishlist', JSON.stringify(wishlist));
   };
 
-  // 🚨 Submit Review Function
+  // 🚨 Submit Review Function (Fixed with try/catch/finally)
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -91,8 +91,9 @@ export default function PDP() {
     if (!comment.trim()) return;
 
     setIsSubmittingReview(true);
+    
     try {
-      await addDoc(collection(db, 'reviews'), {
+      const docRef = await addDoc(collection(db, 'reviews'), {
         productId: id,
         userId: user.uid,
         userName: user.displayName || user.email,
@@ -100,13 +101,26 @@ export default function PDP() {
         comment: comment,
         createdAt: new Date(),
       });
+
+      // ✅ INSTANTLY UPDATE THE UI
+      const newReview = {
+        id: docRef.id,
+        productId: id,
+        userId: user.uid,
+        userName: user.displayName || user.email,
+        rating: rating,
+        comment: comment,
+        createdAt: new Date(),
+      };
+      
+      setReviews([newReview, ...reviews]);
       setComment('');
+      setRating(5);
       alert("Review submitted successfully!");
-      // Refresh the page to show the new review
-      window.location.reload();
+      
     } catch (error) {
       console.error("Error submitting review:", error);
-      alert("Failed to submit review.");
+      alert("Failed to submit review. Check console for details.");
     } finally {
       setIsSubmittingReview(false);
     }
@@ -207,7 +221,7 @@ export default function PDP() {
                       <span style={{ fontWeight: 'bold' }}>{rev.comment}</span>
                     </div>
                     <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '12px' }}>
-                      By {rev.userName} on {new Date(rev.createdAt?.toDate?.() || rev.createdAt).toLocaleDateString()}
+                      By {rev.userName} on {rev.createdAt?.toDate ? rev.createdAt.toDate().toLocaleDateString() : new Date(rev.createdAt).toLocaleDateString()}
                     </p>
                   </div>
                 ))
