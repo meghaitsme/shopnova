@@ -55,8 +55,8 @@ export default function Orders() {
         console.log("📧 Sending email to:", emailToSendTo);
 
         emailjs.send(
-          'service_iyjjub3',    // 👈 Your Service ID
-          'template_u118xbs',   // 👈 Your Template ID
+          'service_iyijub3',    // 👈 Your Service ID
+          '__ejs-test-mail-service__',   // 👈 Your Template ID
           templateParams,
           'enm9N6mcUVaAeB2C-'   // 👈 Your Public Key
         ).then(() => {
