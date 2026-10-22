@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { Product } from '../types';
 
+
 interface CartItem extends Product {
   quantity: number;
 }
