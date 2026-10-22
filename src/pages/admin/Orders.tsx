@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../../data/firebase';
-import emailjs from '@emailjs/browser'; // 👈 Import EmailJS
+import emailjs from '@emailjs/browser';
 
 export default function Orders() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -38,28 +38,32 @@ export default function Orders() {
       await updateDoc(orderRef, { status: newStatus });
       setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
 
-      // 3. 🚨 SEND EMAIL
-      if (orderToUpdate.buyerEmail) {
+      // 3. 🚨 SEND EMAIL WITH FALLBACK
+      // Use the saved email, OR fallback to 'guest' for older orders
+      const emailToSendTo = orderToUpdate.buyerEmail || 'guest'; 
+
+      // Only skip if it's literally the word 'guest'
+      if (emailToSendTo !== 'guest') {
         const templateParams = {
           order_id: orderId.substring(0, 8).toUpperCase(),
           customer_name: orderToUpdate.customerName,
           status: newStatus,
           total_amount: `₹${orderToUpdate.totalAmount}`,
-          to_email: orderToUpdate.buyerEmail,
+          to_email: emailToSendTo,
         };
 
-        console.log("📧 Sending email to:", orderToUpdate.buyerEmail);
+        console.log("📧 Sending email to:", emailToSendTo);
 
         emailjs.send(
-          'service_iyjjub3',    // 👈 Your Service ID from the screenshot
-          'template_u118xbs',   // 👈 Paste your Template ID here
+          'service_iyjjub3',    // 👈 Your Service ID
+          'template_u118xbs',   // 👈 Your Template ID
           templateParams,
-          'enm9N6mcUVaAeB2C-'     // 👈 Paste your Public Key here
+          'enm9N6mcUVaAeB2C-'   // 👈 Your Public Key
         ).then(() => {
-          alert("Status updated & Email sent!");
+          alert("Status updated & Email sent successfully!");
         }).catch((error) => {
           console.error('❌ Email failed:', error);
-          alert("Status updated, but email failed to send.");
+          alert("Status updated, but email failed to send. Check console.");
         });
       } else {
         alert("Status updated! (No email on file for this guest)");
@@ -69,7 +73,6 @@ export default function Orders() {
     }
   };
 
-  // ... (Keep your existing return JSX for the table here)
   if (loading) return <p style={{ padding: '30px' }}>Loading orders...</p>;
 
   return (

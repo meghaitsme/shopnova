@@ -18,7 +18,12 @@ export default function Checkout() {
   const [phone, setPhone] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 🚨 AUTO-FILL SAVED ADDRESS
+  // Coupon States
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [couponMessage, setCouponMessage] = useState('');
+
+  // Auto-fill saved address
   useEffect(() => {
     const fetchSavedAddress = async () => {
       if (!user?.uid) return;
@@ -38,9 +43,46 @@ export default function Checkout() {
     fetchSavedAddress();
   }, [user]);
 
-  const totalPrice = cart?.reduce((total: number, item: any) => {
-    return total + (item.price * (item.quantity || 1));
-  }, 0) || 0;
+  // Calculate totals
+  const subTotal = cart?.reduce((total: number, item: any) => total + (item.price * (item.quantity || 1)), 0) || 0;
+  
+  let discountAmount = 0;
+  if (appliedCoupon) {
+    discountAmount = (subTotal * appliedCoupon.discount) / 100;
+  }
+  
+  const finalTotal = subTotal - discountAmount;
+
+  // Apply Coupon
+  const handleApplyCoupon = async () => {
+    setCouponMessage('');
+    if (!couponCode) return;
+
+    try {
+      const q = query(collection(db, 'coupons'), where('code', '==', couponCode.toUpperCase()));
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        setCouponMessage('❌ Invalid coupon code.');
+        setAppliedCoupon(null);
+        return;
+      }
+
+      const couponData = snap.docs[0].data();
+      
+      if (subTotal < couponData.minAmount) {
+        setCouponMessage(`❌ Minimum order of ${formatPrice(couponData.minAmount)} required.`);
+        setAppliedCoupon(null);
+        return;
+      }
+
+      setAppliedCoupon(couponData);
+      setCouponMessage(`✅ Coupon applied! You saved ${couponData.discount}%`);
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      setCouponMessage('❌ Failed to apply coupon.');
+    }
+  };
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +92,15 @@ export default function Checkout() {
     try {
       const orderData = {
         userId: user?.uid || 'guest',
+        buyerEmail: user?.email || 'guest', // 👈 SAVES EMAIL FOR NOTIFICATIONS
         customerName: name,
         address: `${address}, ${city} - ${pincode}`,
         phone: phone,
         items: cart,
-        totalAmount: totalPrice,
+        subTotal: subTotal,
+        couponApplied: appliedCoupon ? appliedCoupon.code : null,
+        discountAmount: discountAmount,
+        totalAmount: finalTotal,
         status: 'Pending',
         createdAt: serverTimestamp(),
       };
@@ -91,47 +137,22 @@ export default function Checkout() {
         <h2 style={{ borderBottom: '1px solid #ddd', paddingBottom: '10px' }}>Shipping Address</h2>
         
         <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '20px' }}>
-          <input 
-            type="text" placeholder="Full Name" required
-            value={name} onChange={(e) => setName(e.target.value)}
-            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-          <input 
-            type="text" placeholder="Full Address" required
-            value={address} onChange={(e) => setAddress(e.target.value)}
-            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
+          <input type="text" placeholder="Full Name" required value={name} onChange={(e) => setName(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+          <input type="text" placeholder="Full Address" required value={address} onChange={(e) => setAddress(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
           <div style={{ display: 'flex', gap: '10px' }}>
-            <input 
-              type="text" placeholder="City" required
-              value={city} onChange={(e) => setCity(e.target.value)}
-              style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', flex: '1' }}
-            />
-            <input 
-              type="text" placeholder="Pincode / Zip" required
-              value={pincode} onChange={(e) => setPincode(e.target.value)}
-              style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', flex: '1' }}
-            />
+            <input type="text" placeholder="City" required value={city} onChange={(e) => setCity(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', flex: '1' }} />
+            <input type="text" placeholder="Pincode / Zip" required value={pincode} onChange={(e) => setPincode(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', flex: '1' }} />
           </div>
-          <input 
-            type="tel" placeholder="Phone Number" required
-            value={phone} onChange={(e) => setPhone(e.target.value)}
-            style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
+          <input type="tel" placeholder="Phone Number" required value={phone} onChange={(e) => setPhone(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
 
           <h3 style={{ marginTop: '20px' }}>Payment Method</h3>
           <div style={{ padding: '15px', border: '1px solid #2874f0', borderRadius: '4px', backgroundColor: '#f0f7ff' }}>
             <input type="radio" checked readOnly style={{ marginRight: '10px' }} />
             <strong>Cash on Delivery (COD)</strong>
-            <p style={{ margin: '5px 0 0 25px', fontSize: '14px', color: '#666' }}>Pay when your order arrives.</p>
           </div>
 
-          <button 
-            type="submit" 
-            disabled={isProcessing}
-            style={{ marginTop: '20px', backgroundColor: '#fb641b', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer' }}
-          >
-            {isProcessing ? 'Processing...' : `Place Order - ${formatPrice(totalPrice)}`}
+          <button type="submit" disabled={isProcessing} style={{ marginTop: '20px', backgroundColor: '#fb641b', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer' }}>
+            {isProcessing ? 'Processing...' : `Place Order - ${formatPrice(finalTotal)}`}
           </button>
         </form>
       </div>
@@ -147,9 +168,32 @@ export default function Checkout() {
           </div>
         ))}
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '20px 0', borderTop: '1px solid #ddd', paddingTop: '15px', fontWeight: 'bold', fontSize: '18px' }}>
+        <div style={{ marginTop: '20px', borderTop: '1px solid #ddd', paddingTop: '15px' }}>
+          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '14px' }}>Apply Coupon</p>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input type="text" placeholder="Enter code" value={couponCode} onChange={(e) => setCouponCode(e.target.value)} style={{ flex: '1', padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }} />
+            <button type="button" onClick={handleApplyCoupon} style={{ backgroundColor: '#2874f0', color: 'white', border: 'none', padding: '8px 15px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+              Apply
+            </button>
+          </div>
+          {couponMessage && <p style={{ fontSize: '12px', margin: '5px 0 0 0', color: couponMessage.includes('✅') ? 'green' : 'red' }}>{couponMessage}</p>}
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', borderTop: '1px solid #ddd', paddingTop: '15px' }}>
+          <span>Subtotal</span>
+          <span>{formatPrice(subTotal)}</span>
+        </div>
+        
+        {appliedCoupon && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', margin: '5px 0', color: 'green' }}>
+            <span>Discount ({appliedCoupon.discount}%)</span>
+            <span>- {formatPrice(discountAmount)}</span>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', margin: '15px 0', borderTop: '1px solid #ddd', paddingTop: '15px', fontWeight: 'bold', fontSize: '18px' }}>
           <span>Total</span>
-          <span>{formatPrice(totalPrice)}</span>
+          <span>{formatPrice(finalTotal)}</span>
         </div>
       </div>
     </div>
