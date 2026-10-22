@@ -43,20 +43,24 @@ export default function Home() {
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
         
         {/* 🟢 CATEGORY SECTION */}
-        <div style={{ display: 'flex', justifyContent: 'space-around', backgroundColor: 'white', padding: '20px', marginTop: '-20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-          <Link to="/products?category=Electronics" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
-            <div style={{ fontSize: '30px', marginBottom: '5px' }}>📱</div>
-            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Electronics</span>
-          </Link>
-          <Link to="/products?category=Clothing" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
-            <div style={{ fontSize: '30px', marginBottom: '5px' }}>👕</div>
-            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Clothing</span>
-          </Link>
-          <Link to="/products?category=Books" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
-            <div style={{ fontSize: '30px', marginBottom: '5px' }}>📚</div>
-            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Books</span>
-          </Link>
-        </div>
+<div style={{ display: 'flex', justifyContent: 'space-around', backgroundColor: 'white', padding: '20px', marginTop: '-20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+  
+  <Link to="/products?category=Electronics" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
+    <div style={{ fontSize: '30px', marginBottom: '5px' }}>📱</div>
+    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Electronics</span>
+  </Link>
+
+  <Link to="/products?category=Clothing" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
+    <div style={{ fontSize: '30px', marginBottom: '5px' }}>👕</div>
+    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Clothing</span>
+  </Link>
+
+  <Link to="/products?category=Books" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
+    <div style={{ fontSize: '30px', marginBottom: '5px' }}>📚</div>
+    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Books</span>
+  </Link>
+  
+</div>
 
         {/* 🟢 FEATURED PRODUCTS GRID */}
         <div style={{ marginTop: '30px', paddingBottom: '50px' }}>

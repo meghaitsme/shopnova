@@ -1,4 +1,6 @@
+// 1. Add useSearchParams to the import
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom'; // 👈 ADD THIS
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../data/firebase';
 import ProductCard from '../../components/product/ProductCard';
@@ -8,9 +10,17 @@ export default function PLP() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   
-  // 🚨 Filter States
+  // 2. Read the category from the URL
+  const [searchParams] = useSearchParams();
+  const urlCategory = searchParams.get('category') || 'All';
+
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory); // 👈 Set initial state
+
+  // 3. Add a useEffect to update the dropdown if the URL changes
+  useEffect(() => {
+    setSelectedCategory(urlCategory);
+  }, [urlCategory]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -29,6 +39,8 @@ export default function PLP() {
     };
     fetchProducts();
   }, []);
+
+  // ... (Rest of your filtering logic and JSX remains the same)
 
   // 🚨 Filter Logic
   const filteredProducts = products.filter((product) => {
