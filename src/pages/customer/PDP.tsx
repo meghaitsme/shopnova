@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../utils/format';
@@ -38,10 +38,17 @@ export default function PDP() {
         const reviewsQuery = query(
           collection(db, 'reviews'), 
           where('productId', '==', id),
-          orderBy('createdAt', 'desc')
         );
         const reviewsSnap = await getDocs(reviewsQuery);
-        const reviewsData = reviewsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        let reviewsData = reviewsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+         // 🚨 Sort the reviews in JavaScript (Newest first)
+        reviewsData.sort((a: any, b: any) => {
+          const dateA = a.createdAt?.toMillis?.() || new Date(a.createdAt).getTime() || 0;
+          const dateB = b.createdAt?.toMillis?.() || new Date(b.createdAt).getTime() || 0;
+          return dateB - dateA;
+        });
+
+        setReviews(reviewsData);
         setReviews(reviewsData);
         
       } catch (err) {
