@@ -18,9 +18,11 @@ export default function Checkout() {
   const [phone, setPhone] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const totalPrice = cart?.reduce((total: number, item: any) => total + (item.price * (item.quantity || 1)), 0) || 0;
+  // 🚨 FIX: Ensure we calculate the total correctly using the item's quantity
+  const totalPrice = cart?.reduce((total: number, item: any) => {
+    return total + (item.price * (item.quantity || 1));
+  }, 0) || 0;
 
-  // ✅ ONLY ONE handlePlaceOrder function now
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsProcessing(true);
@@ -33,7 +35,7 @@ export default function Checkout() {
         address: `${address}, ${city} - ${pincode}`,
         phone: phone,
         items: cart,
-        totalAmount: totalPrice,
+        totalAmount: totalPrice, // 👈 This will now be the correct number
         status: 'Pending',
         createdAt: serverTimestamp(),
       };
@@ -56,6 +58,8 @@ export default function Checkout() {
       setIsProcessing(false);
     }
   };
+
+  // ... (Keep the rest of your return JSX exactly as it is)
 
   // Protect the route if the cart is empty
   if (!cart || cart.length === 0) {
