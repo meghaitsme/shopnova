@@ -4,6 +4,8 @@ import { db } from '../../data/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { formatPrice } from '../../utils/format';
 import { Link } from 'react-router-dom';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { auth } from '../../data/firebase';
 
 export default function Profile() {
   const { user } = useAuth();
@@ -16,6 +18,12 @@ export default function Profile() {
   const [phone, setPhone] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+    // 🚨 Password Change States
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [passwordMessage, setPasswordMessage] = useState('');
 
   useEffect(() => {
     const fetchProfileAndOrders = async () => {
@@ -48,6 +56,38 @@ export default function Profile() {
 
     fetchProfileAndOrders();
   }, [user]);
+
+    const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.email) return;
+    
+    setIsChangingPassword(true);
+    setPasswordMessage('');
+
+    try {
+      // 1. Re-authenticate the user (Firebase requires this for security)
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(auth.currentUser!, credential);
+
+      // 2. Update the password
+      await updatePassword(auth.currentUser!, newPassword);
+      
+      setPasswordMessage('✅ Password updated successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+    } catch (error: any) {
+      console.error("Error changing password:", error);
+      if (error.code === 'auth/wrong-password') {
+        setPasswordMessage('❌ Current password is incorrect.');
+      } else if (error.code === 'auth/weak-password') {
+        setPasswordMessage('❌ New password must be at least 6 characters.');
+      } else {
+        setPasswordMessage('❌ Failed to update password. Please log in again.');
+      }
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,6 +153,25 @@ export default function Profile() {
               {isSaving ? 'Saving...' : 'Save Changes'}
             </button>
           </form>
+
+                  {/* 🚨 CHANGE PASSWORD SECTION */}
+        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginTop: '20px' }}>
+          <h2 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Change Password</h2>
+          
+          {passwordMessage && <p style={{ color: passwordMessage.includes('✅') ? 'green' : 'red', fontSize: '14px' }}>{passwordMessage}</p>}
+          
+          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
+            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Current Password</label>
+            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+
+            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>New Password (min 6 chars)</label>
+            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
+
+            <button type="submit" disabled={isChangingPassword} style={{ backgroundColor: '#fb641b', color: 'white', padding: '12px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
+              {isChangingPassword ? 'Updating...' : 'Update Password'}
+            </button>
+          </form>
+        </div>
         </div>
       </div>
 
