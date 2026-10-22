@@ -24,9 +24,16 @@ import AdminProducts from './pages/admin/AdminProducts'; // 👈 1. ADD IMPORT H
 import AdminCoupons from './pages/admin/AdminCoupons';
 
 function AppRoutes() {
-  const { user } = useAuth();
-  const isAdmin = user?.isAdmin;
+  const { user,loading } = useAuth();
 
+   // 🚨 CRITICAL: Wait for Firebase to check the user before redirecting
+  if (loading) {
+    return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
+  }
+
+  const isAdmin = user?.isAdmin; // 👈 Use the custom claim
+
+  console.log("👤 [App] Current User:", user?.email, "| Is Admin:", isAdmin);
 
   return (
     <Routes>

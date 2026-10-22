@@ -5,9 +5,10 @@ import {
   signOut, 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  getIdTokenResult // 👈 CRITICAL IMPORT
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore'; // 👈 This fixes the error
+import { doc, setDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: any;
@@ -26,11 +27,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       console.log("🔐 [Auth] State changed. User:", currentUser?.email || "Guest");
+      
       if (currentUser) {
+        // 🚨 forceRefresh = true ensures we get the admin claim
+        const tokenResult = await getIdTokenResult(currentUser, true); 
+        const isAdmin = tokenResult.claims.admin === true;
+
         setUser({
           uid: currentUser.uid,
           email: currentUser.email,
           displayName: currentUser.displayName || currentUser.email?.split('@')[0],
+          isAdmin: isAdmin, // 👈 Save the badge
         });
       } else {
         setUser(null);
@@ -42,37 +49,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string) => {
     try {
-      console.log("🔐 [Auth] Attempting login...");
       await signInWithEmailAndPassword(auth, email, password);
-      console.log("✅ [Auth] Login successful");
     } catch (error) {
-      console.error("❌ [Auth] Login failed:", error);
-      throw error; 
+      throw error;
     }
   };
 
   const register = async (email: string, password: string, name: string) => {
     try {
-      console.log("📝 [Auth] Attempting registration...");
-      
-      // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      
-      // 2. Update their display name in Auth
       await updateProfile(userCredential.user, { displayName: name });
-      
-      // 3. SAVE USER TO FIRESTORE DATABASE
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         name: name,
         email: email,
-        role: 'customer', 
+        role: 'customer',
         createdAt: new Date(),
       });
-      console.log("✅ [Auth] User saved to Firestore Database");
-
     } catch (error) {
-      console.error("❌ [Auth] Registration failed:", error);
       throw error;
     }
   };
