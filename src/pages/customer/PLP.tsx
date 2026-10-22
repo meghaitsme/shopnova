@@ -5,6 +5,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../data/firebase';
 import ProductCard from '../../components/product/ProductCard';
 import type { Product } from '../../types';
+import Spinner from '../../components/common/Spinner';
 
 export default function PLP() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -116,6 +117,8 @@ export default function PLP() {
         </h2>
 
         {loading ? (
+           <Spinner />
+        ) : filteredProducts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '50px' }}>Loading products...</div>
         ) : filteredProducts.length === 0 ? (
           <div style={{ backgroundColor: 'white', padding: '50px', textAlign: 'center', borderRadius: '8px' }}>

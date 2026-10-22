@@ -4,6 +4,7 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../data/firebase';
 import ProductCard from '../../components/product/ProductCard';
 import type { Product } from '../../types';
+import Spinner from '../../components/common/Spinner';
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -67,7 +68,10 @@ export default function Home() {
           <h2 style={{ fontSize: '22px', marginBottom: '20px', color: '#333' }}>Featured Products</h2>
           
           {loading ? (
-            <p>Loading products...</p>
+            <>
+              <Spinner />
+              <p>Loading products...</p>
+            </>
           ) : products.length === 0 ? (
             <div style={{ backgroundColor: 'white', padding: '40px', textAlign: 'center', borderRadius: '8px' }}>
               <p style={{ color: '#666' }}>No products found in the database yet.</p>
