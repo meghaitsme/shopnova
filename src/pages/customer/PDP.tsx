@@ -4,6 +4,7 @@ import { db } from '../../data/firebase';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext'; // ✅ ADDED IMPORT
 import { formatPrice } from '../../utils/format';
 
 export default function PDP() {
@@ -11,15 +12,15 @@ export default function PDP() {
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const { user } = useAuth();
+  const { showToast } = useToast(); // ✅ ADDED HOOK
   
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
   // Track the specific wishlist document ID for Firebase
   const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
-  
-  // ✅ Quantity State
   const [quantity, setQuantity] = useState(1);
+  const [recommendedProduct, setRecommendedProduct] = useState<any>(null); // ✅ NEW STATE
 
   // Review States
   const [reviews, setReviews] = useState<any[]>([]);
@@ -28,6 +29,7 @@ export default function PDP() {
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
+    // ✅ This is an async function, so 'await' is allowed here
     const fetchProductAndReviews = async () => {
       if (!id) return;
       setLoading(true);
@@ -66,6 +68,37 @@ export default function PDP() {
           }
         }
 
+        // 4. Fetch Frequently Bought Together (✅ MOVED INSIDE ASYNC FUNCTION)
+        const ordersQuery = query(collection(db, 'orders'));
+        const ordersSnap = await getDocs(ordersQuery);
+        
+        const coPurchases: Record<string, number> = {};
+        
+        ordersSnap.forEach((doc) => {
+          const order = doc.data();
+          if (order.items && order.items.length > 1) {
+            const hasCurrentProduct = order.items.some((item: any) => (item._id || item.productId) === id);
+            
+            if (hasCurrentProduct) {
+              order.items.forEach((item: any) => {
+                const itemId = item._id || item.productId;
+                if (itemId !== id) {
+                  coPurchases[itemId] = (coPurchases[itemId] || 0) + 1;
+                }
+              });
+            }
+          }
+        });
+
+        const topRecommendedId = Object.keys(coPurchases).sort((a, b) => coPurchases[b] - coPurchases[a])[0];
+        
+        if (topRecommendedId) {
+          const recDoc = await getDoc(doc(db, 'products', topRecommendedId));
+          if (recDoc.exists()) {
+            setRecommendedProduct({ _id: recDoc.id, ...recDoc.data() });
+          }
+        }
+
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -76,7 +109,6 @@ export default function PDP() {
     fetchProductAndReviews();
   }, [id, user]);
 
-  // ✅ Updated to handle selected quantity
   const handleAddToCart = () => {
     if (product) {
       for (let i = 0; i < quantity; i++) {
@@ -94,12 +126,10 @@ export default function PDP() {
     }
   };
 
-  // Toggle Wishlist using Firebase
   const toggleWishlist = async () => {
     if (!product) return;
-    
     if (!user) {
-      alert("Please log in to save items to your wishlist.");
+      showToast("Please log in to save items to your wishlist.", "error"); // ✅ REPLACED ALERT
       return;
     }
 
@@ -120,15 +150,14 @@ export default function PDP() {
       }
     } catch (err) {
       console.error("Error updating wishlist:", err);
-      alert("Failed to update wishlist.");
+      showToast("Failed to update wishlist.", "error"); // ✅ REPLACED ALERT
     }
   };
 
-  // Submit Review Function
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert("Please log in to submit a review.");
+      showToast("Please log in to submit a review.", "error"); // ✅ REPLACED ALERT
       return;
     }
     if (!comment.trim()) return;
@@ -158,11 +187,11 @@ export default function PDP() {
       setReviews([newReview, ...reviews]);
       setComment('');
       setRating(5);
-      alert("Review submitted successfully!");
+      showToast("Review submitted successfully!", "success"); // ✅ REPLACED ALERT
       
     } catch (error) {
       console.error("Error submitting review:", error);
-      alert("Failed to submit review. Check console for details.");
+      showToast("Failed to submit review.", "error"); // ✅ REPLACED ALERT
     } finally {
       setIsSubmittingReview(false);
     }
@@ -182,44 +211,25 @@ export default function PDP() {
         {/* PRODUCT DETAILS SECTION */}
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginBottom: '30px' }}>
           
-          {/* Left Column: Image and Buttons */}
           <div style={{ flex: '1', minWidth: '300px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', textAlign: 'center', position: 'relative' }}>
             <button 
               onClick={toggleWishlist} 
-              style={{ 
-                position: 'absolute', top: '20px', right: '20px', 
-                background: 'white', border: '1px solid #ddd', borderRadius: '50%', 
-                width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px' 
-              }}
+              style={{ position: 'absolute', top: '20px', right: '20px', background: 'white', border: '1px solid #ddd', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px' }}
             >
               {wishlistDocId ? '❤️' : '🤍'}
             </button>
-            <img src={product.image || "https://placehold.co/400x400"} alt={product.name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
+            <img src={(product.image || "https://placehold.co/400x400").split(',')[0]} alt={product.name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
             
-            {/* ✅ NEW: Quantity Selector & Bulk Discount */}
             <div style={{ marginTop: '30px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '12px' }}>
                 <span style={{ fontWeight: 'bold', color: '#374151' }}>Quantity:</span>
                 <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: '4px' }}>
-                  <button 
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    style={{ padding: '6px 16px', border: 'none', background: '#f3f4f6', cursor: 'pointer', fontSize: '18px' }}
-                  >
-                    -
-                  </button>
-                  <span style={{ padding: '6px 16px', fontWeight: 'bold', minWidth: '40px', textAlign: 'center' }}>
-                    {quantity}
-                  </span>
-                  <button 
-                    onClick={() => setQuantity(quantity + 1)}
-                    style={{ padding: '6px 16px', border: 'none', background: '#f3f4f6', cursor: 'pointer', fontSize: '18px' }}
-                  >
-                    +
-                  </button>
+                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} style={{ padding: '6px 16px', border: 'none', background: '#f3f4f6', cursor: 'pointer', fontSize: '18px' }}>-</button>
+                  <span style={{ padding: '6px 16px', fontWeight: 'bold', minWidth: '40px', textAlign: 'center' }}>{quantity}</span>
+                  <button onClick={() => setQuantity(quantity + 1)} style={{ padding: '6px 16px', border: 'none', background: '#f3f4f6', cursor: 'pointer', fontSize: '18px' }}>+</button>
                 </div>
               </div>
               
-              {/* Bulk Discount Banner */}
               {quantity >= 2 ? (
                 <div style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold' }}>
                   🎉 You get a 10% bulk discount on this item!
@@ -231,44 +241,16 @@ export default function PDP() {
               )}
             </div>
 
-            {/* ✅ Disable buttons if out of stock */}
             <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
-              <button 
-                onClick={handleAddToCart} 
-                disabled={product.stock <= 0}
-                style={{ 
-                  flex: '1', 
-                  backgroundColor: product.stock <= 0 ? '#d1d5db' : '#ff9f00', 
-                  color: 'white', 
-                  padding: '15px', 
-                  border: 'none', 
-                  borderRadius: '4px', 
-                  fontWeight: 'bold', 
-                  cursor: product.stock <= 0 ? 'not-allowed' : 'pointer' 
-                }}
-              >
+              <button onClick={handleAddToCart} disabled={product.stock <= 0} style={{ flex: '1', backgroundColor: product.stock <= 0 ? '#d1d5db' : '#ff9f00', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: product.stock <= 0 ? 'not-allowed' : 'pointer' }}>
                 {product.stock <= 0 ? 'Out of Stock' : '🛒 Add to Cart'}
               </button>
-              <button 
-                onClick={handleBuyNow} 
-                disabled={product.stock <= 0}
-                style={{ 
-                  flex: '1', 
-                  backgroundColor: product.stock <= 0 ? '#d1d5db' : '#fb641b', 
-                  color: 'white', 
-                  padding: '15px', 
-                  border: 'none', 
-                  borderRadius: '4px', 
-                  fontWeight: 'bold', 
-                  cursor: product.stock <= 0 ? 'not-allowed' : 'pointer' 
-                }}
-              >
+              <button onClick={handleBuyNow} disabled={product.stock <= 0} style={{ flex: '1', backgroundColor: product.stock <= 0 ? '#d1d5db' : '#fb641b', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: product.stock <= 0 ? 'not-allowed' : 'pointer' }}>
                 {product.stock <= 0 ? 'Unavailable' : '⚡ Buy Now'}
               </button>
             </div>
           </div>
 
-          {/* Right Column: Product Info */}
           <div style={{ flex: '1.5', minWidth: '300px', backgroundColor: 'white', padding: '30px', borderRadius: '8px' }}>
             <h1 style={{ margin: '0 0 10px 0', fontSize: '28px' }}>{product.name}</h1>
             <p style={{ color: '#388e3c', fontSize: '14px', fontWeight: 'bold', margin: '0 0 20px 0' }}>Special Price</p>
@@ -279,28 +261,60 @@ export default function PDP() {
             <p style={{ color: '#555', lineHeight: '1.6' }}>{product.description || "No description available."}</p>
             <ul style={{ color: '#555', marginTop: '15px', paddingLeft: '20px' }}>
               <li><strong>Category:</strong> {product.category}</li>
-              
-              {/* Stock availability text */}
-              <li>
-                <strong>Availability:</strong>{' '}
-                <span style={{ 
-                  color: product.stock > 0 ? '#388e3c' : '#ef4444', 
-                  fontWeight: 'bold' 
-                }}>
-                  {product.stock > 0 ? `In Stock (${product.stock} left)` : 'Out of Stock'}
-                </span>
-              </li>
+              <li><strong>Availability:</strong>{' '}<span style={{ color: product.stock > 0 ? '#388e3c' : '#ef4444', fontWeight: 'bold' }}>{product.stock > 0 ? `In Stock (${product.stock} left)` : 'Out of Stock'}</span></li>
             </ul>
           </div>
         </div>
+
+        {/* ✅ NEW: Frequently Bought Together */}
+        {recommendedProduct && (
+          <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', marginBottom: '30px' }}>
+            <h3 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+              Frequently Bought Together
+            </h3>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+              <div style={{ textAlign: 'center', width: '100px' }}>
+                <img src={(product.image || '').split(',')[0]} alt={product.name} style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+                <p style={{ fontSize: '12px', margin: '8px 0 0 0', fontWeight: 'bold' }}>{formatPrice(product.price)}</p>
+              </div>
+
+              <div style={{ fontSize: '24px', color: '#6b7280' }}>+</div>
+
+              <div style={{ textAlign: 'center', width: '100px' }}>
+                <Link to={`/product/${recommendedProduct._id}`}>
+                  <img src={(recommendedProduct.image || '').split(',')[0]} alt={recommendedProduct.name} style={{ width: '80px', height: '80px', objectFit: 'contain' }} />
+                </Link>
+                <p style={{ fontSize: '12px', margin: '8px 0 0 0', fontWeight: 'bold' }}>{formatPrice(recommendedProduct.price)}</p>
+              </div>
+
+              <div style={{ fontSize: '24px', color: '#6b7280' }}>=</div>
+
+              <div style={{ textAlign: 'center', width: '100px' }}>
+                <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#10b981' }}>
+                  {formatPrice(product.price + recommendedProduct.price)}
+                </p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  addToCart(product);
+                  addToCart(recommendedProduct);
+                  showToast("Both items added to cart!", "success");
+                }}
+                style={{ marginLeft: 'auto', padding: '12px 24px', backgroundColor: '#ff9f00', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', minWidth: '200px' }}
+              >
+                Add Both to Cart
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* REVIEWS SECTION */}
         <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px' }}>
           <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '15px' }}>Ratings & Reviews</h2>
           
           <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap', marginTop: '20px' }}>
-            
-            {/* Left: Write a Review */}
             <div style={{ flex: '1', minWidth: '300px' }}>
               <h3>Write a Review</h3>
               <form onSubmit={handleSubmitReview} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
@@ -311,14 +325,7 @@ export default function PDP() {
                   <option value={2}>⭐⭐ (2 - Poor)</option>
                   <option value={1}>⭐ (1 - Terrible)</option>
                 </select>
-                <textarea 
-                  placeholder="Share your thoughts about this product..." 
-                  value={comment} 
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={4}
-                  style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical' }}
-                  required
-                />
+                <textarea placeholder="Share your thoughts about this product..." value={comment} onChange={(e) => setComment(e.target.value)} rows={4} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical' }} required />
                 <button type="submit" disabled={isSubmittingReview} style={{ backgroundColor: '#2874f0', color: 'white', padding: '12px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
                   {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
                 </button>
@@ -326,7 +333,6 @@ export default function PDP() {
               </form>
             </div>
 
-            {/* Right: Display Reviews */}
             <div style={{ flex: '2', minWidth: '300px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px' }}>
                 <h1 style={{ fontSize: '48px', margin: 0 }}>{averageRating}</h1>
@@ -342,9 +348,7 @@ export default function PDP() {
                 reviews.map((rev) => (
                   <div key={rev.id} style={{ borderBottom: '1px solid #eee', padding: '15px 0' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '5px' }}>
-                      <span style={{ backgroundColor: '#2874f0', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>
-                        {rev.rating} ⭐
-                      </span>
+                      <span style={{ backgroundColor: '#2874f0', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold' }}>{rev.rating} ⭐</span>
                       <span style={{ fontWeight: 'bold' }}>{rev.comment}</span>
                     </div>
                     <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '12px' }}>
