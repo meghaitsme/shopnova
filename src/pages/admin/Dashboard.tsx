@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../data/firebase';
-import { collection, onSnapshot, query, limit, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {

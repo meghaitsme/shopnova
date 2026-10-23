@@ -23,6 +23,7 @@ import AdminProducts from './pages/admin/AdminProducts';
 import AdminCoupons from './pages/admin/AdminCoupons';
 import Orders from './pages/admin/Orders';
 import EditProduct from './pages/admin/EditProduct'; // ✅ 1. Import added here
+import AdminUsers from './pages/admin/AdminUsers';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -52,6 +53,7 @@ function AppRoutes() {
       {/* PROTECTED ADMIN ROUTES */}
       <Route path="/admin/add-product" element={isAdmin ? <AddProduct /> : <Navigate to="/login" />} />
       <Route path="/admin/dashboard" element={isAdmin ? <Dashboard /> : <Navigate to="/login" />} />
+      <Route path="/admin/users" element={isAdmin ? <AdminUsers /> : <Navigate to="/login" />} />
       <Route path="/admin/products" element={isAdmin ? <AdminProducts /> : <Navigate to="/login" />} />
       <Route path="/admin/coupons" element={isAdmin ? <AdminCoupons /> : <Navigate to="/login" />} />
       <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
