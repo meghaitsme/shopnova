@@ -1,108 +1,95 @@
-﻿import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+﻿import { useState, useEffect } from 'react';
 import { db } from '../../data/firebase';
-import { formatPrice } from '../../utils/format';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalOrders: 0,
-    totalProducts: 0,
-    totalUsers: 0,
-  });
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // 1. Fetch Orders (for Revenue and Order Count)
-        const ordersSnap = await getDocs(collection(db, 'orders'));
-        let revenue = 0;
-        ordersSnap.forEach((doc) => {
-          const order = doc.data();
-          if (order.status !== 'Cancelled') {
-            revenue += order.totalAmount || 0;
-          }
-        });
+    // Listen to the 'orders' collection in real-time
+    const unsubscribe = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      const fetched = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setOrders(fetched);
+      setLoading(false);
+    });
 
-        // 2. Fetch Products Count
-        const productsSnap = await getDocs(collection(db, 'products'));
-
-        // 3. Fetch Users Count
-        const usersSnap = await getDocs(collection(db, 'users'));
-
-        setStats({
-          totalRevenue: revenue,
-          totalOrders: ordersSnap.size,
-          totalProducts: productsSnap.size,
-          totalUsers: usersSnap.size,
-        });
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
+    return () => unsubscribe();
   }, []);
 
-  if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading Dashboard...</div>;
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading dashboard data...</div>;
+
+  // --- Calculate Analytics ---
+  let totalRevenue = 0;
+  let pendingOrders = 0;
+  let deliveredOrders = 0;
+
+  orders.forEach(order => {
+    // Only add to revenue if the order isn't cancelled
+    let orderTotal = order.total;
+    // If total isn't explicitly saved, calculate it from items
+    if (!orderTotal && order.items) {
+      orderTotal = order.items.reduce((sum: number, item: any) => sum + (item.price * item.quantity), 0);
+    }
+
+    if (order.status !== 'Cancelled') {
+      totalRevenue += orderTotal;
+    }
+
+    if (order.status === 'Pending') pendingOrders++;
+    if (order.status === 'Delivered') deliveredOrders++;
+  });
 
   return (
-    <div style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
-      <div style={{ marginBottom: '30px' }}>
-        <h1 style={{ margin: '0 0 10px 0', color: '#1e293b' }}>Admin Dashboard</h1>
-        <p style={{ color: '#64748b' }}>Welcome back! Here is an overview of your store's performance.</p>
-      </div>
+      <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '24px' }}>Dashboard Overview</h1>
 
-      {/* 🟢 STATS CARDS */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', 
-        gap: '20px', 
-        marginBottom: '40px' 
-      }}>
+      {/* Stats Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '40px' }}>
         
         {/* Revenue Card */}
-        <div style={{ backgroundColor: '#10b981', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Total Revenue</h3>
-          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{formatPrice(stats.totalRevenue)}</h2>
+        <div style={{ backgroundColor: '#f0fdf4', padding: '24px', borderRadius: '12px', border: '1px solid #bbf7d0' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: '#166534', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Revenue</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '32px', fontWeight: 'bold', color: '#14532d' }}>
+            ${totalRevenue.toFixed(2)}
+          </p>
         </div>
 
-        {/* Orders Card */}
-        <div style={{ backgroundColor: '#3b82f6', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Total Orders</h3>
-          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalOrders}</h2>
+        {/* Total Orders Card */}
+        <div style={{ backgroundColor: '#eff6ff', padding: '24px', borderRadius: '12px', border: '1px solid #bfdbfe' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: '#1e40af', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Orders</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '32px', fontWeight: 'bold', color: '#1e3a8a' }}>
+            {orders.length}
+          </p>
         </div>
 
-        {/* Products Card */}
-        <div style={{ backgroundColor: '#8b5cf6', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Total Products</h3>
-          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalProducts}</h2>
+        {/* Pending Orders Card */}
+        <div style={{ backgroundColor: '#fefce8', padding: '24px', borderRadius: '12px', border: '1px solid #fef08a' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: '#854d0e', fontWeight: 'bold', textTransform: 'uppercase' }}>Pending Shipments</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '32px', fontWeight: 'bold', color: '#713f12' }}>
+            {pendingOrders}
+          </p>
         </div>
 
-        {/* Users Card */}
-        <div style={{ backgroundColor: '#f59e0b', color: 'white', padding: '25px', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 10px 0', fontSize: '16px', opacity: 0.9 }}>Registered Users</h3>
-          <h2 style={{ margin: 0, fontSize: '32px', fontWeight: 'bold' }}>{stats.totalUsers}</h2>
+        {/* Delivered Orders Card */}
+        <div style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+          <p style={{ margin: 0, fontSize: '14px', color: '#475569', fontWeight: 'bold', textTransform: 'uppercase' }}>Delivered</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '32px', fontWeight: 'bold', color: '#1e293b' }}>
+            {deliveredOrders}
+          </p>
         </div>
 
       </div>
 
-      {/* 🟢 QUICK ACTIONS */}
-      <h3 style={{ color: '#1e293b', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>Quick Actions</h3>
-      <div style={{ display: 'flex', gap: '15px', marginTop: '20px', flexWrap: 'wrap' }}>
-        <Link to="/admin/add-product" style={{ backgroundColor: '#2563eb', color: 'white', padding: '12px 24px', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
-          + Add New Product
+      {/* Quick Links */}
+      <div style={{ display: 'flex', gap: '16px' }}>
+        <Link to="/admin/orders" style={{ padding: '12px 24px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
+          Manage Orders
         </Link>
-        <Link to="/admin/products" style={{ backgroundColor: '#475569', color: 'white', padding: '12px 24px', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
+        <Link to="/admin/products" style={{ padding: '12px 24px', backgroundColor: '#f3f4f6', color: '#374151', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold', border: '1px solid #d1d5db' }}>
           Manage Products
-        </Link>
-        <Link to="/admin/orders" style={{ backgroundColor: '#fb641b', color: 'white', padding: '12px 24px', textDecoration: 'none', borderRadius: '8px', fontWeight: 'bold' }}>
-          View Orders
         </Link>
       </div>
 
