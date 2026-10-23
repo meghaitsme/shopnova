@@ -395,7 +395,7 @@ export default function Orders() {
             </table>
             
             <div style={{ marginTop: '20px', textAlign: 'right', borderTop: '2px solid black', paddingTop: '10px' }}>
-              {selectedOrder.discountApplied > 0 && <p>Discount: -₹{selectedOrder.discountApplied.toFixed(2)}</p>}
+             {(selectedOrder.discountApplied || 0) > 0 && <p>Discount: -₹{Number(selectedOrder.discountApplied || 0).toFixed(2)}</p>}
               <h2>Total: ₹{selectedOrder.total.toFixed(2)}</h2>
             </div>
           </div>
