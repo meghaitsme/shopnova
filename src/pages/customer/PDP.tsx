@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { doc, getDoc, collection, addDoc, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { formatPrice } from '../../utils/format';
@@ -14,7 +14,9 @@ export default function PDP() {
   
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  
+  // 🚨 Changed: Track the specific wishlist document ID for Firebase
+  const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
 
   // 🚨 Review States
   const [reviews, setReviews] = useState<any[]>([]);
@@ -41,16 +43,26 @@ export default function PDP() {
         );
         const reviewsSnap = await getDocs(reviewsQuery);
         let reviewsData = reviewsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-         // 🚨 Sort the reviews in JavaScript (Newest first)
         reviewsData.sort((a: any, b: any) => {
           const dateA = a.createdAt?.toMillis?.() || new Date(a.createdAt).getTime() || 0;
           const dateB = b.createdAt?.toMillis?.() || new Date(b.createdAt).getTime() || 0;
           return dateB - dateA;
         });
-
-        setReviews(reviewsData);
         setReviews(reviewsData);
         
+        // 3. Check if item is already in the user's Firebase Wishlist
+        if (user?.email) {
+          const wishQuery = query(
+            collection(db, 'wishlist'), 
+            where('userEmail', '==', user.email),
+            where('productId', '==', id)
+          );
+          const wishSnap = await getDocs(wishQuery);
+          if (!wishSnap.empty) {
+            setWishlistDocId(wishSnap.docs[0].id); // Save the document ID so we can delete it later
+          }
+        }
+
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -59,10 +71,7 @@ export default function PDP() {
     };
     
     fetchProductAndReviews();
-    
-    const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-    setIsWishlisted(wishlist.some((item: any) => item._id === id));
-  }, [id]);
+  }, [id, user]);
 
   const handleAddToCart = () => {
     if (product) addToCart(product);
@@ -75,20 +84,39 @@ export default function PDP() {
     }
   };
 
-  const toggleWishlist = () => {
+  // 🚨 Updated: Toggle Wishlist using Firebase
+  const toggleWishlist = async () => {
     if (!product) return;
-    let wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-    if (isWishlisted) {
-      wishlist = wishlist.filter((item: any) => item._id !== product._id);
-      setIsWishlisted(false);
-    } else {
-      wishlist.push(product);
-      setIsWishlisted(true);
+    
+    if (!user) {
+      alert("Please log in to save items to your wishlist.");
+      return;
     }
-    localStorage.setItem('wishlist', JSON.stringify(wishlist));
+
+    try {
+      if (wishlistDocId) {
+        // Remove from wishlist
+        await deleteDoc(doc(db, 'wishlist', wishlistDocId));
+        setWishlistDocId(null);
+      } else {
+        // Add to wishlist
+        const docRef = await addDoc(collection(db, 'wishlist'), {
+          userEmail: user.email,
+          productId: product._id,
+          name: product.name,
+          price: Number(product.price),
+          imageUrl: product.imageUrl || product.image || '',
+          addedAt: new Date().toISOString()
+        });
+        setWishlistDocId(docRef.id);
+      }
+    } catch (err) {
+      console.error("Error updating wishlist:", err);
+      alert("Failed to update wishlist.");
+    }
   };
 
-  // 🚨 Submit Review Function (Fixed with try/catch/finally)
+  // 🚨 Submit Review Function
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -109,7 +137,6 @@ export default function PDP() {
         createdAt: new Date(),
       });
 
-      // ✅ INSTANTLY UPDATE THE UI
       const newReview = {
         id: docRef.id,
         productId: id,
@@ -136,7 +163,6 @@ export default function PDP() {
   if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
   if (!product) return <div style={{ padding: '50px', textAlign: 'center' }}>Product not found. <Link to="/products">Go back</Link></div>;
 
-  // Calculate average rating
   const averageRating = reviews.length > 0 
     ? (reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length).toFixed(1) 
     : 0;
@@ -149,8 +175,16 @@ export default function PDP() {
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginBottom: '30px' }}>
           
           <div style={{ flex: '1', minWidth: '300px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', textAlign: 'center', position: 'relative' }}>
-            <button onClick={toggleWishlist} style={{ position: 'absolute', top: '20px', right: '20px', background: 'white', border: '1px solid #ddd', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px' }}>
-              {isWishlisted ? '❤️' : '🤍'}
+            <button 
+              onClick={toggleWishlist} 
+              style={{ 
+                position: 'absolute', top: '20px', right: '20px', 
+                background: 'white', border: '1px solid #ddd', borderRadius: '50%', 
+                width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px' 
+              }}
+            >
+              {/* 🚨 Show filled heart if in wishlist, empty if not */}
+              {wishlistDocId ? '❤️' : '🤍'}
             </button>
             <img src={product.image || "https://placehold.co/400x400"} alt={product.name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
             <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>

@@ -1,96 +1,119 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useCart } from '../../context/CartContext';
-import { formatPrice } from '../../utils/format';
-
-const WISHLIST_STORAGE_KEY = 'wishlist';
-
-// Helper to get items
-function getWishlist(): any[] {
-  try {
-    const storedWishlist = localStorage.getItem(WISHLIST_STORAGE_KEY);
-    const items = storedWishlist ? JSON.parse(storedWishlist) : [];
-    return Array.isArray(items) ? items : [];
-  } catch {
-    return [];
-  }
-}
-
-// Helper to remove items
-function removeFromWishlist(productId: string): void {
-  const updatedWishlist = getWishlist().filter(
-    (product) => product._id !== productId,
-  );
-  localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(updatedWishlist));
-}
+import { db } from '../../data/firebase';
+import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
+// 👇 Update this import if your cart context is named differently
+import { useCart } from '../../context/CartContext'; 
 
 export default function Wishlist() {
-  const [wishlistItems, setWishlistItems] = useState<any[]>([]);
-  const { addToCart } = useCart(); // ✅ Correct function name
+  const { user } = useAuth();
+  const { addToCart } = useCart() || { addToCart: () => alert("Cart not connected") }; 
 
+  const [wishlist, setWishlist] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // 1. Fetch User's Wishlist
   useEffect(() => {
-    setWishlistItems(getWishlist());
-  }, []);
+    if (!user?.email) {
+      setLoading(false);
+      return;
+    }
 
-  const handleRemove = (productId: string) => {
-    removeFromWishlist(productId);
-    setWishlistItems(getWishlist()); 
+    // We look for wishlist items belonging to this user's email
+    const q = query(collection(db, 'wishlist'), where('userEmail', '==', user.email));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setWishlist(fetched);
+      setLoading(false);
+    }, (err) => {
+      console.error("Error fetching wishlist:", err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  // 2. Remove from Wishlist
+  const handleRemove = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'wishlist', id));
+    } catch (err) {
+      console.error("Error removing from wishlist:", err);
+    }
   };
 
-  const handleAddToCart = (product: any) => {
-    addToCart(product);
-  };
+  if (!user) {
+    return (
+      <div style={{ padding: '80px 24px', textAlign: 'center', fontFamily: 'sans-serif' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }}>Please log in to view your wishlist</h2>
+        <Link to="/login" style={{ padding: '12px 24px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
+          Log In
+        </Link>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-      <h2>My Wishlist ({wishlistItems.length})</h2>
+    <div style={{ padding: '40px 24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '32px' }}>My Wishlist</h1>
 
-      {wishlistItems.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <p style={{ color: '#666', fontSize: '18px' }}>Your wishlist is empty.</p>
-          <Link to="/products" style={{ color: '#2874f0', fontWeight: 'bold', textDecoration: 'none' }}>
-            Continue Shopping
+      {loading ? (
+        <p>Loading your wishlist...</p>
+      ) : wishlist.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 20px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <h3 style={{ fontSize: '20px', color: '#374151', marginBottom: '16px' }}>Your wishlist is empty</h3>
+          <p style={{ color: '#6b7280', marginBottom: '24px' }}>Save your favorite items here to buy them later.</p>
+          <Link to="/products" style={{ padding: '12px 24px', backgroundColor: '#111827', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
+            Explore Products
           </Link>
         </div>
       ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', 
-          gap: '20px',
-          marginTop: '20px' 
-        }}>
-          {wishlistItems.map((product) => (
-            <div key={product._id} style={{ 
-              backgroundColor: 'white', 
-              borderRadius: '8px', 
-              overflow: 'hidden', 
-              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              <img 
-                src={product.image || "https://placehold.co/300x300?text=No+Image"} 
-                alt={product.name} 
-                style={{ width: '100%', height: '200px', objectFit: 'cover' }} 
-              />
-              <div style={{ padding: '15px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '16px' }}>{product.name}</h3>
-                <p style={{ margin: '0 0 15px 0', fontWeight: 'bold', color: '#2563eb' }}>
-                  {formatPrice(product.price)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+          {wishlist.map((item) => (
+            <div key={item.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white', display: 'flex', flexDirection: 'column' }}>
+              
+              {/* Image */}
+              <div style={{ height: '200px', backgroundColor: '#f3f4f6', position: 'relative' }}>
+                <Link to={`/product/${item.productId}`}>
+                  <img 
+                    src={item.imageUrl || 'https://via.placeholder.com/300x200?text=No+Image'} 
+                    alt={item.name} 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  />
+                </Link>
+              </div>
+
+              {/* Content */}
+              <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold', margin: '0 0 8px 0' }}>
+                  <Link to={`/product/${item.productId}`} style={{ color: 'inherit', textDecoration: 'none' }}>{item.name}</Link>
+                </h3>
+                <p style={{ fontSize: '20px', fontWeight: 'bold', color: '#111827', margin: '0 0 16px 0' }}>
+                  ₹{item.price?.toFixed(2)}
                 </p>
-                
-                <div style={{ marginTop: 'auto', display: 'flex', gap: '10px' }}>
+
+                {/* Actions */}
+                <div style={{ marginTop: 'auto', display: 'flex', gap: '8px' }}>
                   <button 
-                    onClick={() => handleAddToCart(product)}
-                    style={{ flex: '1', backgroundColor: '#ff9f00', color: 'white', border: 'none', padding: '8px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => {
+                      addToCart({ ...item, id: item.productId });
+                      alert('Added to cart!');
+                    }}
+                    style={{ flex: 1, padding: '10px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
                   >
                     Add to Cart
                   </button>
                   <button 
-                    onClick={() => handleRemove(product._id)}
-                    style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    onClick={() => handleRemove(item.id)}
+                    style={{ padding: '10px', backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+                    title="Remove from wishlist"
                   >
-                    X
+                    ✕
                   </button>
                 </div>
               </div>
