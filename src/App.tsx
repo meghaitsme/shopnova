@@ -10,7 +10,7 @@ import PLP from './pages/customer/PLP';
 import PDP from './pages/customer/PDP';
 import Cart from './pages/customer/Cart';
 import Login from './pages/customer/Login';
-import Register from './pages/customer/Register'; 
+import Register from './pages/customer/Register';
 import Profile from './pages/customer/Profile';
 import Checkout from './pages/customer/Checkout';
 import OrderSuccess from './pages/customer/OrderSuccess';
@@ -19,14 +19,17 @@ import Wishlist from './pages/customer/Wishlist';
 // Admin Pages
 import AddProduct from './pages/AddProduct';
 import Dashboard from './pages/admin/Dashboard';
-import Orders from './pages/admin/Orders';
-import AdminProducts from './pages/admin/AdminProducts'; // 👈 1. ADD IMPORT HERE
+import AdminProducts from './pages/admin/AdminProducts';
 import AdminCoupons from './pages/admin/AdminCoupons';
+function Orders() {
+  return <div style={{ padding: '24px' }}>Orders page is unavailable.</div>;
+}
+
 
 function AppRoutes() {
-  const { user,loading } = useAuth();
+  const { user, loading } = useAuth();
 
-   // 🚨 CRITICAL: Wait for Firebase to check the user before redirecting
+  // 🚨 CRITICAL: Wait for Firebase to check the user before redirecting
   if (loading) {
     return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
   }
@@ -43,7 +46,7 @@ function AppRoutes() {
       <Route path="/product/:id" element={<PDP />} />
       <Route path="/cart" element={<Cart />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} /> 
+      <Route path="/register" element={<Register />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/order-success" element={<OrderSuccess />} />
@@ -52,12 +55,12 @@ function AppRoutes() {
       {/* PROTECTED ADMIN ROUTES */}
       <Route path="/admin/add-product" element={isAdmin ? <AddProduct /> : <Navigate to="/login" />} />
       <Route path="/admin/dashboard" element={isAdmin ? <Dashboard /> : <Navigate to="/login" />} />
-      <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
-      
-      {/* 👈 2. ADD THIS ROUTE HERE */}
       <Route path="/admin/products" element={isAdmin ? <AdminProducts /> : <Navigate to="/login" />} />
       <Route path="/admin/coupons" element={isAdmin ? <AdminCoupons /> : <Navigate to="/login" />} />
-      
+
+      {/* 👈 2. ADD THIS ROUTE HERE */}
+      <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
+
     </Routes>
   );
 }
