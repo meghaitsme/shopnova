@@ -1,157 +1,115 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
-  const { itemCount } = useCart(); 
+  const { itemCount } = useCart(); // Or whatever your cart count variable is
   const navigate = useNavigate();
+  
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
+  const isAdmin = user?.isAdmin;
 
-  const isAdmin = user?.email === 'admin@test.com'; 
-
-  // Close on outside click
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
-    };
-    if (menuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
+  const handleLogout = async () => {
+    if (logout) {
+      await logout();
+      navigate('/login');
+      setIsMobileMenuOpen(false);
     }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [menuOpen]);
-
-  const handleLogout = () => {
-    logout();
-    setMenuOpen(false);
-    navigate('/login');
   };
 
-  const closeMenu = () => setMenuOpen(false);
+  const closeMenu = () => setIsMobileMenuOpen(false);
+
+  // Reusable styles for links
+  const linkStyle = { color: 'white', textDecoration: 'none', fontWeight: 'bold', fontSize: '15px' };
+  const mobileLinkStyle = { ...linkStyle, display: 'block', padding: '12px 16px', borderBottom: '1px solid #1f2937' };
 
   return (
-    <nav style={{
-      display: 'flex', 
-      justifyContent: 'space-between', 
-      alignItems: 'center', 
-      backgroundColor: '#0f172a', 
-      padding: '15px 30px',
-      color: 'white',
-      position: 'relative',
-      zIndex: 100
-    }}>
-      
-      {/* Logo */}
-      <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'white', textDecoration: 'none', fontSize: '20px', fontWeight: 'bold' }}>
-        <img src="/logo.svg" alt="ShopNova Logo" style={{ height: '30px' }} />
-        <span>ShopNova</span>
-      </Link>
-
-      {/* Right Side Links */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '25px', fontSize: '15px' }}>
+    <nav style={{ backgroundColor: '#0f172a', padding: '16px 24px', color: 'white', fontFamily: 'sans-serif', position: 'sticky', top: 0, zIndex: 1000 }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         
-        {/* 🚨 WISHLIST LINK */}
-        <Link to="/wishlist" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>
-          ❤️ Wishlist
+        {/* LOGO */}
+        <Link to="/" onClick={closeMenu} style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'white' }}>⚡ ShopNova</span>
         </Link>
 
-        {/* 🚨 CART LINK */}
-        <Link to="/cart" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>
-          Cart ({itemCount})
-        </Link>
+        {/* DESKTOP MENU */}
+        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }} className="desktop-menu">
+          
+          <Link to="/wishlist" style={linkStyle}>❤️ Wishlist</Link>
+          <Link to="/cart" style={linkStyle}>Cart ({itemCount || 0})</Link>
 
-        {isAdmin && (
-          <>
-            <Link to="/admin/dashboard" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Dashboard</Link>
-            <Link to="/admin/products" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Manage Products</Link>
-            <Link to="/admin/orders" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Orders</Link>
-            <Link to="/admin/coupons" style={{ color: '#facc15', textDecoration: 'none', fontWeight: 'bold' }}>Coupons</Link>
-            <Link to="/admin/users" style={{ color: 'white', textDecoration: 'none', fontWeight: 'bold' }}>
-  Users
-</Link>
-          </>
-        )}
+          {isAdmin && (
+            <>
+              <Link to="/admin/dashboard" style={linkStyle}>Dashboard</Link>
+              <Link to="/admin/products" style={linkStyle}>Manage Products</Link>
+              <Link to="/admin/orders" style={linkStyle}>Orders</Link>
+              <Link to="/admin/coupons" style={linkStyle}>Coupons</Link>
+              <Link to="/admin/users" style={linkStyle}>Users</Link>
+            </>
+          )}
 
-        {/* Settings Dropdown */}
-        <div ref={menuRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: 'white',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '5px',
-              fontSize: '15px'
-            }}
-          >
-            <i className="bx bx-cog" /> Settings
-            <i className={`bx bx-chevron-down ${menuOpen ? 'rotate' : ''}`} />
-          </button>
-
-          {menuOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '140%',
-              right: 0,
-              backgroundColor: 'white',
-              color: 'black',
-              border: '1px solid #ddd',
-              borderRadius: '8px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-              width: '220px',
-              zIndex: 1000,
-              padding: '10px 0',
-              display: 'flex',
-              flexDirection: 'column'
-            }}>
-              {user ? (
-                <>
-                  <Link to="/profile" onClick={closeMenu} style={{ padding: '12px 20px', textDecoration: 'none', color: 'black', display: 'flex', gap: '10px' }}>
-                    <i className="bx bx-user" /> My Profile
-                  </Link>
-                  <Link to="/settings/account" onClick={closeMenu} style={{ padding: '12px 20px', textDecoration: 'none', color: 'black', display: 'flex', gap: '10px' }}>
-                    <i className="bx bx-cog" /> Account Settings
-                  </Link>
-                  <Link to="/settings/payment" onClick={closeMenu} style={{ padding: '12px 20px', textDecoration: 'none', color: 'black', display: 'flex', gap: '10px' }}>
-                    <i className="bx bx-credit-card" /> Payment Methods
-                  </Link>
-                  <div style={{ height: '1px', backgroundColor: '#eee', margin: '5px 0' }} />
-                  <button onClick={handleLogout} style={{ padding: '12px 20px', background: 'transparent', border: 'none', color: 'red', cursor: 'pointer', textAlign: 'left', display: 'flex', gap: '10px', fontSize: '15px' }}>
-                    <i className="bx bx-log-out" /> Logout
-                  </button>
-                </>
-              ) : (
-                <div style={{ padding: '10px' }}>
-                  <p style={{ margin: '0 0 10px 0', fontSize: '14px', color: '#666', textAlign: 'center' }}>Welcome!</p>
-                  <Link to="/login" onClick={closeMenu} style={{ display: 'block', textAlign: 'center', background: '#2563eb', color: 'white', padding: '10px', borderRadius: '4px', textDecoration: 'none', marginBottom: '5px' }}>
-                    Login
-                  </Link>
-                  <Link to="/register" onClick={closeMenu} style={{ display: 'block', textAlign: 'center', color: '#2563eb', padding: '10px', textDecoration: 'none' }}>
-                    Create Account
-                  </Link>
-                </div>
-              )}
+          {user ? (
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center', marginLeft: '16px', borderLeft: '1px solid #334155', paddingLeft: '16px' }}>
+              <Link to="/profile" style={linkStyle}>Hi, {user.email?.split('@')[0]}</Link>
+              <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', fontSize: '15px' }}>Logout</button>
             </div>
+          ) : (
+            <Link to="/login" style={{ ...linkStyle, backgroundColor: '#2563eb', padding: '8px 16px', borderRadius: '6px' }}>Login</Link>
           )}
         </div>
 
-        {user ? (
-          <span style={{ color: '#cbd5e1' }}>Hi, {user.displayName || user.email}</span>
-        ) : (
-          <div style={{ display: 'flex', gap: '15px' }}>
-            <Link to="/login" style={{ color: 'white', textDecoration: 'none' }}>Login</Link>
-            <Link to="/register" style={{ color: 'white', textDecoration: 'none' }}>Register</Link>
-          </div>
-        )}
+        {/* MOBILE MENU BUTTON (Hamburger) */}
+        <button 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          style={{ display: 'none', background: 'none', border: 'none', color: 'white', fontSize: '28px', cursor: 'pointer' }}
+          className="mobile-menu-btn"
+        >
+          ☰
+        </button>
       </div>
+
+      {/* MOBILE DROPDOWN MENU */}
+      {isMobileMenuOpen && (
+        <div style={{ display: 'flex', flexDirection: 'column', marginTop: '16px', backgroundColor: '#1e293b', borderRadius: '8px', overflow: 'hidden' }} className="mobile-dropdown">
+          <Link to="/wishlist" onClick={closeMenu} style={mobileLinkStyle}>❤️ Wishlist</Link>
+          <Link to="/cart" onClick={closeMenu} style={mobileLinkStyle}>Cart ({itemCount || 0})</Link>
+
+          {isAdmin && (
+            <>
+              <Link to="/admin/dashboard" onClick={closeMenu} style={mobileLinkStyle}>Dashboard</Link>
+              <Link to="/admin/products" onClick={closeMenu} style={mobileLinkStyle}>Manage Products</Link>
+              <Link to="/admin/orders" onClick={closeMenu} style={mobileLinkStyle}>Orders</Link>
+              <Link to="/admin/coupons" onClick={closeMenu} style={mobileLinkStyle}>Coupons</Link>
+              <Link to="/admin/users" onClick={closeMenu} style={mobileLinkStyle}>Users</Link>
+            </>
+          )}
+
+          {user ? (
+            <>
+              <Link to="/profile" onClick={closeMenu} style={mobileLinkStyle}>Hi, {user.email?.split('@')[0]}</Link>
+              <button onClick={handleLogout} style={{ ...mobileLinkStyle, background: 'none', border: 'none', textAlign: 'left', width: '100%', cursor: 'pointer', color: '#ef4444' }}>Logout</button>
+            </>
+          ) : (
+            <Link to="/login" onClick={closeMenu} style={mobileLinkStyle}>Login</Link>
+          )}
+        </div>
+      )}
+
+      {/* CSS for responsive behavior */}
+      <style>
+        {`
+          @media (max-width: 900px) {
+            .desktop-menu { display: none !important; }
+            .mobile-menu-btn { display: block !important; }
+          }
+          @media (min-width: 901px) {
+            .mobile-dropdown { display: none !important; }
+          }
+        `}
+      </style>
     </nav>
   );
 }
