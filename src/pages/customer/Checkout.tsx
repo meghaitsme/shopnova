@@ -172,6 +172,33 @@ export default function Checkout() {
         {/* Right Side: Order Summary & Coupon */}
         <div style={{ backgroundColor: '#f9fafb', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', height: 'fit-content' }}>
           <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Order Summary</h2>
+
+           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
+              <span>Subtotal</span>
+              {/* ✅ Show original cart total if bulk discount was applied */}
+              <span style={{ textDecoration: discount > 0 ? 'line-through' : 'none' }}>
+                ₹{(cartTotal + (cart.reduce((sum, i) => i.quantity >= 2 ? sum + ((i.price * i.quantity) * 0.1) : sum, 0))).toFixed(2)}
+              </span>
+            </div>
+
+            {/* ✅ NEW: Show Bulk Discount Savings (if any) */}
+            {cart.some((i: any) => i.quantity >= 2) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10b981', fontWeight: 'bold' }}>
+                <span>Bulk Discount Savings</span>
+                <span>
+                  -₹{cart.reduce((sum, i) => i.quantity >= 2 ? sum + ((i.price * i.quantity) * 0.1) : sum, 0).toFixed(2)}
+                </span>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
+              <span>Shipping</span>
+              <span style={{ color: shippingCost === 0 ? '#10b981' : '#4b5563', fontWeight: shippingCost === 0 ? 'bold' : 'normal' }}>
+                {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
+              </span>
+            </div>
+            
+            {/* ... Coupon Section and Total ... */}
           
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
             <span>Subtotal</span>

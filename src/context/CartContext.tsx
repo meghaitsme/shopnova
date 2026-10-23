@@ -74,7 +74,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
 
   // Derived values
   const itemCount = cart.reduce((total, item) => total + item.quantity, 0);
-  const totalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+    // ✅ UPDATED: Apply 10% discount for items with quantity >= 2
+  const totalPrice = cart.reduce((total, item) => {
+    const itemCost = item.price * item.quantity;
+    // Apply 10% discount if the quantity is 2 or more
+    const finalCost = item.quantity >= 2 ? itemCost * 0.9 : itemCost;
+    return total + finalCost;
+  }, 0);
 
   return (
     <CartContext.Provider 

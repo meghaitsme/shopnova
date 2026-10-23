@@ -35,7 +35,11 @@ export default function Cart() {
           <div style={{ flex: '1 1 600px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {cart.map((item: any, index: number) => {
               const imageUrl = item.image || item.imageUrl || 'https://placehold.co/100x100';
-              const itemTotal = Number(item.price) * (item.quantity || 1);
+
+               // ✅ NEW: Calculate bulk discount per item
+              const hasBulkDiscount = item.quantity >= 2;
+              const originalTotal = Number(item.price) * (item.quantity || 1);
+              const itemTotal = hasBulkDiscount ? originalTotal * 0.9 : originalTotal;
 
               return (
                 <div key={item._id || index} style={{ display: 'flex', gap: '20px', padding: '20px', borderBottom: index !== cart.length - 1 ? '1px solid #e5e7eb' : 'none', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -80,9 +84,21 @@ export default function Cart() {
                     </div>
                   </div>
 
-                  {/* Total Price */}
-                  <div style={{ textAlign: 'right', minWidth: '100px' }}>
-                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '18px' }}>{formatPrice(itemTotal)}</p>
+                {/* Total Price */}
+                  <div style={{ textAlign: 'right', minWidth: '120px' }}>
+                    {hasBulkDiscount && (
+                      <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 'bold', marginBottom: '2px' }}>
+                        10% Bulk Discount
+                      </div>
+                    )}
+                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '18px', color: hasBulkDiscount ? '#10b981' : '#111827' }}>
+                      {formatPrice(itemTotal)}
+                    </p>
+                    {hasBulkDiscount && (
+                      <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af', textDecoration: 'line-through' }}>
+                        {formatPrice(originalTotal)}
+                      </p>
+                    )}
                   </div>
                 </div>
               );
