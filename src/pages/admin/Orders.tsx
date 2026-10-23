@@ -19,8 +19,8 @@ export interface Order {
   address?: string;
   phone?: string;       
   couponUsed?: string;  
-  subtotal?: number;    // ✅ Added for Modal
-  shippingCost?: number; // ✅ Added for Modal
+  subtotal?: number;    
+  shippingCost?: number; 
   total: number;
   status: OrderStatus;
   createdAt: any;
@@ -96,7 +96,7 @@ export default function Orders() {
     }
   };
 
-  // ✅ 3. Export to CSV Function
+  // 3. Export to CSV Function
   const handleExportCSV = () => {
     if (orders.length === 0) {
       alert("No orders to export.");
@@ -153,6 +153,21 @@ export default function Orders() {
     });
   }, [orders, search, statusFilter]);
 
+  // 5. Calculate Quick Stats
+  const stats = useMemo(() => {
+    let revenue = 0;
+    let pending = 0;
+    let delivered = 0;
+    
+    orders.forEach(o => {
+      if (o.status !== 'Cancelled') revenue += o.total;
+      if (o.status === 'Pending') pending++;
+      if (o.status === 'Delivered') delivered++;
+    });
+
+    return { total: orders.length, revenue, pending, delivered };
+  }, [orders]);
+
   // --- Render ---
   if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading live orders...</div>;
   if (error) return <div style={{ padding: '40px', color: 'red', textAlign: 'center' }}>{error}</div>;
@@ -160,39 +175,59 @@ export default function Orders() {
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
-      {/* Header & Filters */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Live Orders</h1>
-        
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          
-          <select 
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer' }}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Pending">Pending</option>
-            <option value="Shipped">Shipped</option>
-            <option value="Delivered">Delivered</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
+      </div>
 
-          <input 
-            type="text" 
-            placeholder="Search by name or ID..." 
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-
-          <button 
-            onClick={handleExportCSV}
-            style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            📥 Export CSV
-          </button>
+      {/* ✅ NEW: Quick Stats Grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #10b981', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Revenue</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '24px', fontWeight: 'bold' }}>₹{stats.revenue.toFixed(2)}</p>
         </div>
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Orders</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '24px', fontWeight: 'bold' }}>{stats.total}</p>
+        </div>
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #f59e0b', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Pending</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '24px', fontWeight: 'bold' }}>{stats.pending}</p>
+        </div>
+        <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #8b5cf6', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Delivered</p>
+          <p style={{ margin: '8px 0 0 0', fontSize: '24px', fontWeight: 'bold' }}>{stats.delivered}</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '20px' }}>
+        <select 
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', backgroundColor: 'white', cursor: 'pointer' }}
+        >
+          <option value="All">All Statuses</option>
+          <option value="Pending">Pending</option>
+          <option value="Shipped">Shipped</option>
+          <option value="Delivered">Delivered</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+
+        <input 
+          type="text" 
+          placeholder="Search by name or ID..." 
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}
+        />
+
+        <button 
+          onClick={handleExportCSV}
+          style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          📥 Export CSV
+        </button>
       </div>
 
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
@@ -312,7 +347,6 @@ export default function Orders() {
               </table>
             </div>
 
-            {/* ✅ UPDATED: Subtotal, Shipping, and Total Breakdown */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '2px solid #e5e7eb', paddingTop: '16px' }}>
               <div style={{ textAlign: 'right', width: '200px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
