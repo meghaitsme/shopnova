@@ -1,138 +1,155 @@
-// 1. Add useSearchParams to the import
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom'; // 👈 ADD THIS
-import { collection, getDocs } from 'firebase/firestore';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import ProductCard from '../../components/product/ProductCard';
-import type { Product } from '../../types';
-import Spinner from '../../components/common/Spinner';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { formatPrice } from '../../utils/format';
 
 export default function PLP() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
-  // 2. Read the category from the URL
-  const [searchParams] = useSearchParams();
-  const urlCategory = searchParams.get('category') || 'All';
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState(urlCategory); // 👈 Set initial state
+  // Filter & Sort State
+  const [search, setSearch] = useState('');
+  const [category, setCategory] = useState('All');
+  const [sortBy, setSortBy] = useState('default'); // 'default', 'price-asc', 'price-desc'
 
-  // 3. Add a useEffect to update the dropdown if the URL changes
+  // 1. Fetch Products
   useEffect(() => {
-    setSelectedCategory(urlCategory);
-  }, [urlCategory]);
+    const unsubscribe = onSnapshot(collection(db, 'products'), (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setProducts(fetched);
+      setLoading(false);
+    });
 
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'products'));
-        const productsData = querySnapshot.docs.map(doc => ({
-          _id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        setProducts(productsData);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
+    return () => unsubscribe();
   }, []);
 
-  // ... (Rest of your filtering logic and JSX remains the same)
+  // 2. Extract unique categories for the dropdown
+  const categories = useMemo(() => {
+    const cats = new Set(products.map(p => p.category).filter(Boolean));
+    return ['All', ...Array.from(cats)];
+  }, [products]);
 
-  // 🚨 Filter Logic
-  const filteredProducts = products.filter((product) => {
-    // 1. Search Filter
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // 2. Category Filter
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+  // 3. Apply Search, Filter, and Sort
+  const filteredProducts = useMemo(() => {
+    let result = [...products];
 
-    return matchesSearch && matchesCategory;
-  });
+    // Search
+    if (search) {
+      result = result.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+    }
+
+    // Category
+    if (category !== 'All') {
+      result = result.filter(p => p.category === category);
+    }
+
+    // Sort
+    if (sortBy === 'price-asc') {
+      result.sort((a, b) => Number(a.price) - Number(b.price));
+    } else if (sortBy === 'price-desc') {
+      result.sort((a, b) => Number(b.price) - Number(a.price));
+    }
+
+    return result;
+  }, [products, search, category, sortBy]);
+
+  if (loading) return <div style={{ padding: '50px', textAlign: 'center' }}>Loading products...</div>;
 
   return (
-    <div style={{ backgroundColor: '#f1f3f6', minHeight: '100vh', padding: '20px' }}>
-      
+    <div style={{ backgroundColor: '#f9fafb', minHeight: '100vh', padding: '30px 20px', fontFamily: 'sans-serif' }}>
       <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
         
-        {/* 🚨 SEARCH AND FILTER BAR */}
+        <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '24px' }}>All Products</h1>
+
+        {/* Filter & Sort Bar */}
         <div style={{ 
+          display: 'flex', 
+          gap: '16px', 
+          flexWrap: 'wrap', 
           backgroundColor: 'white', 
-          padding: '15px 20px', 
+          padding: '16px', 
           borderRadius: '8px', 
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-          display: 'flex',
-          gap: '15px',
-          flexWrap: 'wrap',
-          marginBottom: '20px',
+          border: '1px solid #e5e7eb',
+          marginBottom: '32px',
           alignItems: 'center'
         }}>
-          {/* Search Input */}
+          {/* Search */}
           <input 
             type="text" 
-            placeholder="Search for products, brands and more..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ 
-              flex: '1', 
-              minWidth: '250px',
-              padding: '12px 20px', 
-              borderRadius: '4px', 
-              border: '1px solid #ddd',
-              fontSize: '15px',
-              outline: 'none'
-            }}
+            placeholder="Search products..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ flex: '1 1 200px', padding: '10px 16px', border: '1px solid #d1d5db', borderRadius: '6px' }}
           />
 
-          {/* Category Dropdown */}
+          {/* Category */}
           <select 
-            value={selectedCategory} 
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            style={{ 
-              padding: '12px 20px', 
-              borderRadius: '4px', 
-              border: '1px solid #ddd',
-              fontSize: '15px',
-              cursor: 'pointer',
-              backgroundColor: 'white',
-              outline: 'none'
-            }}
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            style={{ padding: '10px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', cursor: 'pointer' }}
           >
-            <option value="All">All Categories</option>
-            <option value="Electronics">Electronics</option>
-            <option value="Clothing">Clothing</option>
-            <option value="Books">Books</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          {/* Sort */}
+          <select 
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            style={{ padding: '10px 16px', border: '1px solid #d1d5db', borderRadius: '6px', backgroundColor: 'white', cursor: 'pointer' }}
+          >
+            <option value="default">Sort by: Featured</option>
+            <option value="price-asc">Price: Low to High</option>
+            <option value="price-desc">Price: High to Low</option>
           </select>
         </div>
 
-        {/* 🚨 PRODUCT GRID */}
-        <h2 style={{ margin: '20px 0', color: '#212121' }}>
-          {selectedCategory === 'All' ? 'All Products' : selectedCategory} 
-          {searchTerm && ` matching "${searchTerm}"`} 
-          ({filteredProducts.length})
-        </h2>
-
-        {loading ? (
-           <Spinner />
-        ) : filteredProducts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '50px' }}>Loading products...</div>
-        ) : filteredProducts.length === 0 ? (
-          <div style={{ backgroundColor: 'white', padding: '50px', textAlign: 'center', borderRadius: '8px' }}>
-            <h3 style={{ color: '#666' }}>No products found</h3>
-            <p style={{ color: '#999' }}>Try adjusting your search or filter.</p>
+        {/* Product Grid */}
+        {filteredProducts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <h3 style={{ fontSize: '20px', color: '#374151' }}>No products found</h3>
+            <p style={{ color: '#6b7280' }}>Try adjusting your search or filters.</p>
           </div>
         ) : (
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', 
-            gap: '20px' 
-          }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
             {filteredProducts.map((product) => (
-              <ProductCard key={product._id} product={product} />
+              <Link 
+                key={product.id} 
+                to={`/product/${product.id}`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <div style={{ 
+                  backgroundColor: 'white', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden', 
+                  border: '1px solid #e5e7eb',
+                  transition: 'transform 0.2s, boxShadow 0.2s',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  {/* Image */}
+                  <div style={{ height: '220px', backgroundColor: '#f3f4f6', padding: '16px' }}>
+                    <img 
+                      src={product.image || product.imageUrl || 'https://placehold.co/300x300'} 
+                      alt={product.name} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    />
+                  </div>
+                  
+                  {/* Details */}
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <p style={{ fontSize: '12px', color: '#6b7280', textTransform: 'uppercase', marginBottom: '4px' }}>{product.category}</p>
+                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0', flex: 1 }}>{product.name}</h3>
+                    <p style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>{formatPrice(product.price)}</p>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         )}
