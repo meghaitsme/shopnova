@@ -34,10 +34,16 @@ export default function Home() {
         const order = doc.data();
         if (order.status !== 'Cancelled' && order.items) {
           order.items.forEach((item: any) => {
-            if (!productSales[item.productId || item._id]) {
-              productSales[item.productId || item._id] = { count: 0, productData: item };
+            // Safely get ID and quantity
+            const itemId = item.productId || item._id;
+            const qty = Number(item.quantity) || 1; // Default to 1 if missing
+
+            if (itemId) {
+              if (!productSales[itemId]) {
+                productSales[itemId] = { count: 0, productData: item };
+              }
+              productSales[itemId].count += qty;
             }
-            productSales[item.productId || item._id].count += item.quantity;
           });
         }
       });
@@ -138,7 +144,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ✅ NEW: BESTSELLERS SECTION */}
+      {/* ✅ BESTSELLERS SECTION */}
       {bestsellers.length > 0 && (
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 40px 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -164,21 +170,25 @@ export default function Home() {
                   flexDirection: 'column',
                   position: 'relative'
                 }}>
-                  {/* Sales Badge */}
-                  <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', zIndex: 1 }}>
-                    {product.salesCount} Sold
-                  </div>
+                  {/* Sales Badge (Safely handled) */}
+                  {product.salesCount > 0 && (
+                    <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', zIndex: 1 }}>
+                      {product.salesCount} Sold
+                    </div>
+                  )}
                   
                   <div style={{ height: '200px', backgroundColor: '#f3f4f6', padding: '16px' }}>
                     <img 
-                      src={product.image || product.imageUrl || 'https://placehold.co/300x300'} 
+                      src={(product.image || product.imageUrl || 'https://placehold.co/300x300').split(',')[0]} 
                       alt={product.name} 
                       style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     />
                   </div>
                   <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0', flex: 1 }}>{product.name}</h3>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#111827' }}>{formatPrice(product.price)}</p>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#111827' }}>
+                      {formatPrice(Number(product.price) || 0)}
+                    </p>
                   </div>
                 </div>
               </Link>
@@ -213,14 +223,16 @@ export default function Home() {
                 }}>
                   <div style={{ height: '200px', backgroundColor: '#f3f4f6', padding: '16px' }}>
                     <img 
-                      src={product.image || product.imageUrl || 'https://placehold.co/300x300'} 
+                      src={(product.image || product.imageUrl || 'https://placehold.co/300x300').split(',')[0]} 
                       alt={product.name} 
                       style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     />
                   </div>
                   <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
                     <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0', flex: 1 }}>{product.name}</h3>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#111827' }}>{formatPrice(product.price)}</p>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#111827' }}>
+                      {formatPrice(Number(product.price) || 0)}
+                    </p>
                   </div>
                 </div>
               </Link>
