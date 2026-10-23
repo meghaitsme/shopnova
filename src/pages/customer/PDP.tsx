@@ -17,6 +17,9 @@ export default function PDP() {
   
   // Track the specific wishlist document ID for Firebase
   const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
+  
+  // ✅ Quantity State
+  const [quantity, setQuantity] = useState(1);
 
   // Review States
   const [reviews, setReviews] = useState<any[]>([]);
@@ -73,13 +76,20 @@ export default function PDP() {
     fetchProductAndReviews();
   }, [id, user]);
 
+  // ✅ Updated to handle selected quantity
   const handleAddToCart = () => {
-    if (product) addToCart(product);
+    if (product) {
+      for (let i = 0; i < quantity; i++) {
+        addToCart(product);
+      }
+    }
   };
 
   const handleBuyNow = () => {
     if (product) {
-      addToCart(product);
+      for (let i = 0; i < quantity; i++) {
+        addToCart(product);
+      }
       navigate('/cart');
     }
   };
@@ -186,8 +196,43 @@ export default function PDP() {
             </button>
             <img src={product.image || "https://placehold.co/400x400"} alt={product.name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
             
+            {/* ✅ NEW: Quantity Selector & Bulk Discount */}
+            <div style={{ marginTop: '30px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '16px', marginBottom: '12px' }}>
+                <span style={{ fontWeight: 'bold', color: '#374151' }}>Quantity:</span>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: '4px' }}>
+                  <button 
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    style={{ padding: '6px 16px', border: 'none', background: '#f3f4f6', cursor: 'pointer', fontSize: '18px' }}
+                  >
+                    -
+                  </button>
+                  <span style={{ padding: '6px 16px', fontWeight: 'bold', minWidth: '40px', textAlign: 'center' }}>
+                    {quantity}
+                  </span>
+                  <button 
+                    onClick={() => setQuantity(quantity + 1)}
+                    style={{ padding: '6px 16px', border: 'none', background: '#f3f4f6', cursor: 'pointer', fontSize: '18px' }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              
+              {/* Bulk Discount Banner */}
+              {quantity >= 2 ? (
+                <div style={{ backgroundColor: '#dcfce7', color: '#166534', padding: '10px', borderRadius: '6px', fontSize: '14px', fontWeight: 'bold' }}>
+                  🎉 You get a 10% bulk discount on this item!
+                </div>
+              ) : (
+                <div style={{ backgroundColor: '#fef9c3', color: '#854d0e', padding: '10px', borderRadius: '6px', fontSize: '14px' }}>
+                  💡 Buy 2 or more and get 10% off this item.
+                </div>
+              )}
+            </div>
+
             {/* ✅ Disable buttons if out of stock */}
-            <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
+            <div style={{ display: 'flex', gap: '15px', marginTop: '20px' }}>
               <button 
                 onClick={handleAddToCart} 
                 disabled={product.stock <= 0}
@@ -235,7 +280,7 @@ export default function PDP() {
             <ul style={{ color: '#555', marginTop: '15px', paddingLeft: '20px' }}>
               <li><strong>Category:</strong> {product.category}</li>
               
-              {/* ✅ Stock availability text */}
+              {/* Stock availability text */}
               <li>
                 <strong>Availability:</strong>{' '}
                 <span style={{ 
