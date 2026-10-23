@@ -19,6 +19,7 @@ export default function PDP() {
   const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [recommendedProduct, setRecommendedProduct] = useState<any>(null);
+    const [relatedProducts, setRelatedProducts] = useState<any[]>([]);
 
   const [reviews, setReviews] = useState<any[]>([]);
   const [rating, setRating] = useState(5);
@@ -69,6 +70,25 @@ export default function PDP() {
         if (topRecommendedId) {
           const recDoc = await getDoc(doc(db, 'products', topRecommendedId));
           if (recDoc.exists()) setRecommendedProduct({ _id: recDoc.id, ...recDoc.data() });
+        }
+
+                // 5. Fetch Related Products (Same category, exclude current product)
+        if (docSnap.exists()) {
+          const category = docSnap.data().category;
+          if (category) {
+            const relatedQuery = query(
+              collection(db, 'products'),
+              where('category', '==', category)
+            );
+            const relatedSnap = await getDocs(relatedQuery);
+            
+            const related = relatedSnap.docs
+              .map(d => ({ _id: d.id, ...d.data() }))
+              .filter(p => p._id !== id) // Don't show the current product
+              .slice(0, 4); // Show max 4 products
+            
+            setRelatedProducts(related);
+          }
         }
 
       } catch (err) {
@@ -243,6 +263,31 @@ export default function PDP() {
                     <p style={{ margin: '5px 0 0 0', color: '#888', fontSize: '12px' }}>By {rev.userName} on {new Date(rev.createdAt).toLocaleDateString()}</p>
                   </div>
                 ))}
+
+        {/* ✅ NEW: Related Products Section */}
+        {relatedProducts.length > 0 && (
+          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px', marginTop: '30px' }}>
+            <h2 style={{ fontSize: '22px', fontWeight: 'bold', marginBottom: '20px', borderBottom: '1px solid #eee', paddingBottom: '12px' }}>
+              Similar Products
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '20px' }}>
+              {relatedProducts.map((prod) => (
+                <Link key={prod._id} to={`/product/${prod._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', transition: 'transform 0.2s', cursor: 'pointer' }}>
+                    <div style={{ height: '180px', backgroundColor: '#f3f4f6', padding: '10px' }}>
+                      <img src={(prod.image || 'https://placehold.co/200x200').split(',')[0]} alt={prod.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    </div>
+                    <div style={{ padding: '12px' }}>
+                      <h4 style={{ fontSize: '14px', fontWeight: 'bold', margin: '0 0 8px 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prod.name}</h4>
+                      <p style={{ fontSize: '16px', fontWeight: 'bold', margin: 0, color: '#111827' }}>{formatPrice(prod.price)}</p>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
             </div>
           </div>
         </div>
