@@ -21,7 +21,8 @@ import AddProduct from './pages/AddProduct';
 import Dashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminCoupons from './pages/admin/AdminCoupons';
-import Orders from './pages/admin/Orders'; // <--- Imported exactly ONCE here
+import Orders from './pages/admin/Orders';
+import EditProduct from './pages/admin/EditProduct'; // ✅ 1. Import added here
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -53,9 +54,10 @@ function AppRoutes() {
       <Route path="/admin/dashboard" element={isAdmin ? <Dashboard /> : <Navigate to="/login" />} />
       <Route path="/admin/products" element={isAdmin ? <AdminProducts /> : <Navigate to="/login" />} />
       <Route path="/admin/coupons" element={isAdmin ? <AdminCoupons /> : <Navigate to="/login" />} />
-      
-      {/* ADMIN ORDERS ROUTE */}
       <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
+      
+      {/* ✅ 2. Add EditProduct Route here */}
+      <Route path="/admin/edit-product/:id" element={isAdmin ? <EditProduct /> : <Navigate to="/login" />} />
     </Routes>
   );
 }

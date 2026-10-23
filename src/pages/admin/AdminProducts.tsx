@@ -3,6 +3,7 @@ import { db } from '../../data/firebase';
 import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
 import { Link } from 'react-router-dom';
 
+
 export interface Product {
   id: string;
   name: string;
@@ -135,6 +136,12 @@ export default function AdminProducts() {
                     </span>
                   </td>
                   <td style={{ padding: '16px', textAlign: 'right' }}>
+                     <Link 
+      to={`/admin/edit-product/${product.id}`}
+      style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' }}
+    >
+      Edit
+    </Link>
                     <button 
                       onClick={() => handleDelete(product.id, product.name)}
                       style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
