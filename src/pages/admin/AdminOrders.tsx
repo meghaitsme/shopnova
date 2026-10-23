@@ -7,6 +7,8 @@ import { useToast } from '../../context/ToastContext';
 export type OrderStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
 
 export interface OrderItem {
+   productId?: string; // ✅ Added
+  _id?: string;       // ✅ Added
   category?: string;
   name: string;
   price: number;
