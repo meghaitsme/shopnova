@@ -1,209 +1,159 @@
-﻿import { useEffect, useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+﻿import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-import { formatPrice } from '../../utils/format';
-import { Link } from 'react-router-dom';
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { auth } from '../../data/firebase';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
 
 export default function Profile() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth(); // Assuming your AuthContext has a logout function
+  const navigate = useNavigate();
+
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // 🚨 Profile Edit States
-  const [displayName, setDisplayName] = useState('');
-  const [address, setAddress] = useState('');
-  const [phone, setPhone] = useState('');
-  const [isSaving, setIsSaving] = useState(false);
-  const [message, setMessage] = useState('');
-
-    // 🚨 Password Change States
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwordMessage, setPasswordMessage] = useState('');
+  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProfileAndOrders = async () => {
-      if (!user?.uid) return;
-      
-      try {
-        // 1. Fetch user's profile data (Name, Address)
-        const usersQuery = query(collection(db, 'users'), where('uid', '==', user.uid));
-        const usersSnap = await getDocs(usersQuery);
-        
-        if (!usersSnap.empty) {
-          const userData = usersSnap.docs[0].data();
-          setDisplayName(userData.name || '');
-          setAddress(userData.address || '');
-          setPhone(userData.phone || '');
-        }
+    if (!user?.email) {
+      setLoading(false);
+      return;
+    }
 
-        // 2. Fetch user's orders
-        const ordersQuery = query(collection(db, 'orders'), where('userId', '==', user.uid));
-        const ordersSnap = await getDocs(ordersQuery);
-        const myOrders = ordersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        setOrders(myOrders);
+    // Fetch orders ONLY for this user's email, newest first
+    const q = query(
+      collection(db, 'orders'),
+      where('customerEmail', '==', user.email),
+      orderBy('createdAt', 'desc')
+    );
 
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setOrders(fetched);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching user orders:", error);
+      setLoading(false);
+    });
 
-    fetchProfileAndOrders();
+    return () => unsubscribe();
   }, [user]);
 
-    const handleChangePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user?.email) return;
-    
-    setIsChangingPassword(true);
-    setPasswordMessage('');
-
-    try {
-      // 1. Re-authenticate the user (Firebase requires this for security)
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
-      await reauthenticateWithCredential(auth.currentUser!, credential);
-
-      // 2. Update the password
-      await updatePassword(auth.currentUser!, newPassword);
-      
-      setPasswordMessage('✅ Password updated successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-    } catch (error: any) {
-      console.error("Error changing password:", error);
-      if (error.code === 'auth/wrong-password') {
-        setPasswordMessage('❌ Current password is incorrect.');
-      } else if (error.code === 'auth/weak-password') {
-        setPasswordMessage('❌ New password must be at least 6 characters.');
-      } else {
-        setPasswordMessage('❌ Failed to update password. Please log in again.');
-      }
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user?.uid) return;
-    setIsSaving(true);
-    setMessage('');
-
-    try {
-      // Update the user's document in Firestore
-      const usersQuery = query(collection(db, 'users'), where('uid', '==', user.uid));
-      const usersSnap = await getDocs(usersQuery);
-      
-      if (!usersSnap.empty) {
-        const docId = usersSnap.docs[0].id;
-        await updateDoc(doc(db, 'users', docId), {
-          name: displayName,
-          address: address,
-          phone: phone,
-        });
-        setMessage('✅ Profile updated successfully!');
-      }
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      setMessage('❌ Failed to update profile.');
-    } finally {
-      setIsSaving(false);
+  const handleLogout = async () => {
+    if (logout) {
+      await logout();
+      navigate('/login');
     }
   };
 
   if (!user) {
-    return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
-        <h2>Please log in to view your profile.</h2>
-        <Link to="/login" style={{ color: '#2874f0' }}>Go to Login</Link>
-      </div>
-    );
+    return <div style={{ padding: '40px', textAlign: 'center' }}>Please log in to view your profile.</div>;
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto', display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+    <div style={{ padding: '40px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
-      {/* LEFT: EDIT PROFILE */}
-      <div style={{ flex: '1', minWidth: '300px' }}>
-        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h2 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Edit Profile</h2>
-          
-          {message && <p style={{ color: message.includes('✅') ? 'green' : 'red', fontSize: '14px' }}>{message}</p>}
-          
-          <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
-            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Email (Read Only)</label>
-            <input type="email" value={user.email} disabled style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ddd', backgroundColor: '#f5f5f5' }} />
-
-            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Full Name</label>
-            <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Phone Number</label>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Default Shipping Address</label>
-            <textarea value={address} onChange={(e) => setAddress(e.target.value)} rows={3} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc', resize: 'vertical' }} />
-
-            <button type="submit" disabled={isSaving} style={{ backgroundColor: '#2874f0', color: 'white', padding: '12px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </form>
-
-                  {/* 🚨 CHANGE PASSWORD SECTION */}
-        <div style={{ backgroundColor: 'white', padding: '25px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', marginTop: '20px' }}>
-          <h2 style={{ marginTop: 0, borderBottom: '1px solid #eee', paddingBottom: '10px' }}>Change Password</h2>
-          
-          {passwordMessage && <p style={{ color: passwordMessage.includes('✅') ? 'green' : 'red', fontSize: '14px' }}>{passwordMessage}</p>}
-          
-          <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '15px' }}>
-            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>Current Password</label>
-            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} required style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-            <label style={{ fontSize: '14px', fontWeight: 'bold' }}>New Password (min 6 chars)</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required minLength={6} style={{ padding: '10px', borderRadius: '4px', border: '1px solid #ccc' }} />
-
-            <button type="submit" disabled={isChangingPassword} style={{ backgroundColor: '#fb641b', color: 'white', padding: '12px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>
-              {isChangingPassword ? 'Updating...' : 'Update Password'}
-            </button>
-          </form>
+      {/* Profile Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '1px solid #e5e7eb', paddingBottom: '24px' }}>
+        <div>
+          <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 8px 0' }}>My Profile</h1>
+          <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Logged in as: <strong>{user.email}</strong></p>
         </div>
-        </div>
+        <button 
+          onClick={handleLogout}
+          style={{ padding: '10px 20px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          Log Out
+        </button>
       </div>
 
-      {/* RIGHT: MY ORDERS */}
-      <div style={{ flex: '1.5', minWidth: '300px' }}>
-        <h2 style={{ borderBottom: '2px solid #eee', paddingBottom: '10px', marginTop: 0 }}>My Orders</h2>
-        
-        {loading ? (
-          <p>Loading orders...</p>
-        ) : orders.length === 0 ? (
-          <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px', textAlign: 'center' }}>
-            <p>No orders yet.</p>
-            <Link to="/products" style={{ color: '#2874f0' }}>Start Shopping</Link>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-            {orders.map((order) => (
-              <div key={order.id} style={{ backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '8px', padding: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '14px', color: '#666' }}>Order ID: <strong>{order.id.substring(0, 8)}</strong></span>
-                  <span style={{ padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', backgroundColor: order.status === 'Pending' ? '#fef3c7' : '#d1fae5', color: order.status === 'Pending' ? '#b45309' : '#065f46' }}>
-                    {order.status}
+      {/* Order History */}
+      <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>Order History</h2>
+
+      {loading ? (
+        <p>Loading your orders...</p>
+      ) : orders.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <p style={{ color: '#6b7280', marginBottom: '16px' }}>You haven't placed any orders yet.</p>
+          <Link to="/products" style={{ padding: '10px 20px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
+            Start Shopping
+          </Link>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {orders.map((order) => (
+            <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white' }}>
+              
+              {/* Order Header Row */}
+              <div style={{ padding: '16px 24px', backgroundColor: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order Placed</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>₹{order.total?.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order ID</p>
+                  <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '14px' }}>{order.id}</p>
+                </div>
+                <div>
+                  <span style={{ 
+                    padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+                    backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Cancelled' ? '#fee2e2' : order.status === 'Shipped' ? '#dbeafe' : '#fef9c3',
+                    color: order.status === 'Delivered' ? '#166534' : order.status === 'Cancelled' ? '#991b1b' : order.status === 'Shipped' ? '#1e40af' : '#854d0e'
+                  }}>
+                    {order.status || 'Pending'}
                   </span>
                 </div>
-                <p style={{ margin: '5px 0', fontSize: '14px' }}><strong>Total:</strong> {formatPrice(order.totalAmount)}</p>
-                <p style={{ margin: '5px 0', fontSize: '13px', color: '#666' }}>Deliver to: {order.address}</p>
+                <button 
+                  onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                  style={{ background: 'none', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  {expandedOrder === order.id ? 'Hide Details' : 'View Details'}
+                </button>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
+              {/* Expandable Order Details */}
+              {expandedOrder === order.id && (
+                <div style={{ padding: '24px' }}>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#374151' }}>Items in this order:</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {order.items?.map((item: any, idx: number) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '12px' }}>
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : (
+                          <div style={{ width: '50px', height: '50px', backgroundColor: '#f3f4f6', borderRadius: '4px' }} />
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{item.name}</p>
+                          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Qty: {item.quantity} × ₹{item.price}</p>
+                        </div>
+                        <p style={{ margin: 0, fontWeight: 'bold' }}>₹{(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div style={{ marginTop: '16px', backgroundColor: '#f9fafb', padding: '16px', borderRadius: '6px' }}>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Shipping Address:</strong> {order.address}</p>
+                    <p style={{ margin: 0, fontSize: '14px' }}><strong>Phone:</strong> {order.phone}</p>
+                    {order.couponUsed && (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#10b981' }}>
+                        <strong>Coupon Applied:</strong> {order.couponUsed} (-₹{order.discountApplied})
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
