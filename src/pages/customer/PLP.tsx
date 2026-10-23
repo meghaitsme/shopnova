@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { db } from '../../data/firebase';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { formatPrice } from '../../utils/format';
@@ -8,12 +8,17 @@ export default function PLP() {
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 1. Get category from URL (e.g., /products?category=Electronics)
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const initialCategory = queryParams.get('category') || 'All';
+
   // Filter & Sort State
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('All');
+  const [category, setCategory] = useState(initialCategory); // Used only ONCE here
   const [sortBy, setSortBy] = useState('default'); // 'default', 'price-asc', 'price-desc'
 
-  // 1. Fetch Products
+  // 2. Fetch Products
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'products'), (snapshot) => {
       const fetched: any[] = [];
@@ -27,13 +32,13 @@ export default function PLP() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Extract unique categories for the dropdown
+  // 3. Extract unique categories for the dropdown
   const categories = useMemo(() => {
     const cats = new Set(products.map(p => p.category).filter(Boolean));
     return ['All', ...Array.from(cats)];
   }, [products]);
 
-  // 3. Apply Search, Filter, and Sort
+  // 4. Apply Search, Filter, and Sort
   const filteredProducts = useMemo(() => {
     let result = [...products];
 

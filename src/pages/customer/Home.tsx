@@ -1,91 +1,131 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../data/firebase';
-import ProductCard from '../../components/product/ProductCard';
-import type { Product } from '../../types';
-import Spinner from '../../components/common/Spinner';
+import { collection, limit, query, onSnapshot } from 'firebase/firestore';
+import { formatPrice } from '../../utils/format';
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Fetch the latest 4 products to feature on the home page
   useEffect(() => {
-    const fetchProducts = async () => {
-      console.log("🔍 [Home] Fetching products from Firebase...");
-      try {
-        const querySnapshot = await getDocs(collection(db, 'products'));
-        const productsData = querySnapshot.docs.map(doc => ({
-          _id: doc.id,
-          ...doc.data()
-        })) as Product[];
-        setProducts(productsData);
-      } catch (error) {
-        console.error("❌ [Home] Error fetching products:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchProducts();
+    const q = query(collection(db, 'products'), limit(4));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setFeaturedProducts(fetched);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
   return (
-    <div style={{ backgroundColor: '#f1f3f6', minHeight: '100vh' }}>
+    <div style={{ fontFamily: 'sans-serif', backgroundColor: '#f9fafb', minHeight: '100vh' }}>
       
-      {/* 🟢 HERO BANNER (Flipkart Style) */}
-      <div style={{ backgroundColor: '#2874f0', color: 'white', padding: '60px 20px', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '40px', margin: '0 0 15px 0', fontWeight: 'bold' }}>Welcome to ShopNova</h1>
-        <p style={{ fontSize: '18px', marginBottom: '25px', opacity: 0.9 }}>Discover the best products at unbeatable prices.</p>
-        <Link to="/products" style={{ backgroundColor: '#fb641b', color: 'white', padding: '12px 30px', textDecoration: 'none', borderRadius: '4px', fontSize: '16px', fontWeight: 'bold' }}>
-          Shop Now
-        </Link>
+      {/* 🚨 HERO SECTION */}
+      <div style={{ 
+        background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', 
+        color: 'white', 
+        padding: '80px 20px',
+        textAlign: 'center'
+      }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <h1 style={{ fontSize: '48px', fontWeight: 'bold', margin: '0 0 16px 0', lineHeight: '1.2' }}>
+            Welcome to ShopNova
+          </h1>
+          <p style={{ fontSize: '20px', margin: '0 0 32px 0', opacity: 0.9 }}>
+            Discover the best products at unbeatable prices. Shop the latest trends today.
+          </p>
+          <Link 
+            to="/products" 
+            style={{ 
+              display: 'inline-block',
+              padding: '16px 32px', 
+              backgroundColor: 'white', 
+              color: '#1e3a8a', 
+              textDecoration: 'none', 
+              borderRadius: '8px', 
+              fontWeight: 'bold',
+              fontSize: '18px',
+              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+            }}
+          >
+            Shop All Products
+          </Link>
+        </div>
       </div>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px' }}>
-        
-        {/* 🟢 CATEGORY SECTION */}
-<div style={{ display: 'flex', justifyContent: 'space-around', backgroundColor: 'white', padding: '20px', marginTop: '-20px', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-  
-  <Link to="/products?category=Electronics" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
-    <div style={{ fontSize: '30px', marginBottom: '5px' }}>📱</div>
-    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Electronics</span>
-  </Link>
+      {/* 🚨 CATEGORY QUICK LINKS */}
+      <div style={{ maxWidth: '1200px', margin: '-30px auto 40px auto', padding: '0 20px', position: 'relative', zIndex: 10 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+          {['Electronics', 'Clothing', 'Books', 'Home'].map((cat) => (
+            <Link key={cat} to={`/products?category=${cat}`} style={{ textDecoration: 'none' }}>
+              <div style={{ 
+                backgroundColor: 'white', 
+                padding: '24px', 
+                borderRadius: '8px', 
+                textAlign: 'center', 
+                boxShadow: '0 4px 6px rgba(0,0,0,0.05)',
+                border: '1px solid #e5e7eb',
+                color: '#374151',
+                fontWeight: 'bold',
+                fontSize: '18px',
+                transition: 'transform 0.2s'
+              }}>
+                {cat}
+              </div>
+            </Link>
+          ))}
+        </div>
+      </div>
 
-  <Link to="/products?category=Clothing" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
-    <div style={{ fontSize: '30px', marginBottom: '5px' }}>👕</div>
-    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Clothing</span>
-  </Link>
-
-  <Link to="/products?category=Books" style={{ textDecoration: 'none', color: '#333', textAlign: 'center' }}>
-    <div style={{ fontSize: '30px', marginBottom: '5px' }}>📚</div>
-    <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Books</span>
-  </Link>
-  
-</div>
-
-        {/* 🟢 FEATURED PRODUCTS GRID */}
-        <div style={{ marginTop: '30px', paddingBottom: '50px' }}>
-          <h2 style={{ fontSize: '22px', marginBottom: '20px', color: '#333' }}>Featured Products</h2>
-          
-          {loading ? (
-            <>
-              <Spinner />
-              <p>Loading products...</p>
-            </>
-          ) : products.length === 0 ? (
-            <div style={{ backgroundColor: 'white', padding: '40px', textAlign: 'center', borderRadius: '8px' }}>
-              <p style={{ color: '#666' }}>No products found in the database yet.</p>
-            </div>
-          ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
-              {products.map((product) => (
-                <ProductCard key={product._id} product={product} />
-              ))}
-            </div>
-          )}
+      {/* 🚨 FEATURED PRODUCTS */}
+      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 60px 20px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Featured Products</h2>
+          <Link to="/products" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 'bold' }}>
+            View All &rarr;
+          </Link>
         </div>
 
+        {loading ? (
+          <p>Loading featured products...</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
+            {featuredProducts.map((product) => (
+              <Link key={product.id} to={`/product/${product.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ 
+                  backgroundColor: 'white', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden', 
+                  border: '1px solid #e5e7eb',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}>
+                  <div style={{ height: '200px', backgroundColor: '#f3f4f6', padding: '16px' }}>
+                    <img 
+                      src={product.image || product.imageUrl || 'https://placehold.co/300x300'} 
+                      alt={product.name} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    />
+                  </div>
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0', flex: 1 }}>{product.name}</h3>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#111827' }}>{formatPrice(product.price)}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
+
     </div>
   );
 }
