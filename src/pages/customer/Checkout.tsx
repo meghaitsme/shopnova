@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
+// ✅ Added doc and getDoc for the low stock check
+import { collection, addDoc, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext'; 
 import { useToast } from '../../context/ToastContext';
-import emailjs from '@emailjs/browser'; // 👈 Import EmailJS
+import emailjs from '@emailjs/browser';
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -95,20 +96,55 @@ export default function Checkout() {
     }
   };
 
-  // 3. Place Order & Send Email
+  // 3. Place Order & Send Emails
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) {
-      showToast("Please login first.", "error");
-      return;
-    }
-    if (!cart || cart.length === 0) {
-      showToast("Your cart is empty.", "error");
-      return;
-    }
+    if (!user) { showToast("Please login first.", "error"); return; }
+    if (!cart || cart.length === 0) { showToast("Your cart is empty.", "error"); return; }
 
     setLoading(true);
+    
+    // ✅ Declare env variables here so they are available throughout the function
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+    const receiptTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const lowStockTemplateId = import.meta.env.VITE_EMAILJS_LOW_STOCK_TEMPLATE_ID;
+
     try {
+      // ✅ STEP 1: Check for Low Stock BEFORE placing the order
+      let lowStockItems: string[] = [];
+      
+      for (const item of cart) {
+        const productRef = doc(db, 'products', item._id);
+        const productSnap = await getDoc(productRef);
+        
+        if (productSnap.exists()) {
+          const currentStock = productSnap.data().stock || 0;
+          if (currentStock <= 5) {
+            lowStockItems.push(`${item.name} (Only ${currentStock} left)`);
+          }
+        }
+      }
+
+      // ✅ STEP 2: Send Low Stock Alert Email to Admin
+      if (lowStockItems.length > 0 && serviceId && lowStockTemplateId && publicKey) {
+        try {
+          await emailjs.send(
+            serviceId,
+            lowStockTemplateId,
+            {
+              items_list: lowStockItems.join('\n'),
+              customer_name: user.displayName || user.email,
+            },
+            publicKey
+          );
+          console.log("Low stock alert email sent to admin.");
+        } catch (emailErr) {
+          console.error("Failed to send low stock alert:", emailErr);
+        }
+      }
+
+      // ✅ STEP 3: Proceed with saving the order
       const orderData = {
         customerName: user.displayName || user.email || 'Unknown',
         customerEmail: user.email || 'No email',
@@ -124,19 +160,14 @@ export default function Checkout() {
         createdAt: new Date().toISOString()
       };
 
-      // ✅ 1. Save order to Firebase
       const docRef = await addDoc(collection(db, 'orders'), orderData);
       
-      // ✅ 2. Send confirmation email via EmailJS
-      try {
-        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-
-        if (serviceId && templateId && publicKey) {
+      // ✅ STEP 4: Send Order Receipt to Customer
+      if (serviceId && receiptTemplateId && publicKey) {
+        try {
           await emailjs.send(
             serviceId,
-            templateId,
+            receiptTemplateId,
             {
               to_name: user.displayName || 'Customer',
               to_email: user.email,
@@ -147,10 +178,9 @@ export default function Checkout() {
             publicKey
           );
           console.log("Confirmation email sent successfully!");
+        } catch (emailErr) {
+          console.error("Failed to send confirmation email:", emailErr);
         }
-      } catch (emailErr) {
-        // We don't fail the order if the email fails
-        console.error("Failed to send confirmation email:", emailErr);
       }
       
       if (clearCart) clearCart();
