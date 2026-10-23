@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, limit, query, onSnapshot } from 'firebase/firestore';
+import { collection, limit, query, onSnapshot, addDoc } from 'firebase/firestore';
 import { formatPrice } from '../../utils/format';
+import { useToast } from '../../context/ToastContext';
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Newsletter State
+  const [email, setEmail] = useState('');
+  const [subscribing, setSubscribing] = useState(false);
+  const { showToast } = useToast();
 
-  // Fetch the latest 4 products to feature on the home page
   useEffect(() => {
     const q = query(collection(db, 'products'), limit(4));
     
@@ -24,10 +29,30 @@ export default function Home() {
     return () => unsubscribe();
   }, []);
 
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+
+    setSubscribing(true);
+    try {
+      await addDoc(collection(db, 'subscribers'), {
+        email: email,
+        subscribedAt: new Date().toISOString()
+      });
+      showToast("Successfully subscribed to our newsletter!", "success");
+      setEmail('');
+    } catch (err) {
+      console.error("Error subscribing:", err);
+      showToast("Failed to subscribe. Please try again.", "error");
+    } finally {
+      setSubscribing(false);
+    }
+  };
+
   return (
     <div style={{ fontFamily: 'sans-serif', backgroundColor: '#f9fafb', minHeight: '100vh' }}>
       
-      {/* 🚨 HERO SECTION */}
+      {/* HERO SECTION */}
       <div style={{ 
         background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)', 
         color: 'white', 
@@ -60,7 +85,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🚨 CATEGORY QUICK LINKS */}
+      {/* CATEGORY QUICK LINKS */}
       <div style={{ maxWidth: '1200px', margin: '-30px auto 40px auto', padding: '0 20px', position: 'relative', zIndex: 10 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
           {['Electronics', 'Clothing', 'Books', 'Home'].map((cat) => (
@@ -84,7 +109,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* 🚨 FEATURED PRODUCTS */}
+      {/* FEATURED PRODUCTS */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 60px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Featured Products</h2>
@@ -124,6 +149,32 @@ export default function Home() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* ✅ NEW: NEWSLETTER SECTION */}
+      <div style={{ backgroundColor: '#111827', padding: '60px 20px', color: 'white', textAlign: 'center' }}>
+        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+          <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Join our Newsletter</h2>
+          <p style={{ color: '#9ca3af', margin: '0 0 24px 0' }}>Get the latest updates on new products and upcoming sales.</p>
+          
+          <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <input 
+              type="email" 
+              placeholder="Enter your email address" 
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              style={{ flex: '1 1 300px', padding: '12px 16px', borderRadius: '6px', border: 'none', fontSize: '16px' }}
+            />
+            <button 
+              type="submit" 
+              disabled={subscribing}
+              style={{ padding: '12px 24px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: subscribing ? 'not-allowed' : 'pointer' }}
+            >
+              {subscribing ? 'Subscribing...' : 'Subscribe'}
+            </button>
+          </form>
+        </div>
       </div>
 
     </div>

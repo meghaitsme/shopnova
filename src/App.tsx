@@ -26,6 +26,7 @@ import EditProduct from './pages/admin/EditProduct'; // ✅ 1. Import added here
 import AdminUsers from './pages/admin/AdminUsers';
 import ScrollToTop from './components/common/ScrollToTop';
 import AdminReviews from './pages/admin/AdminReviews';
+import AdminSubscribers from './pages/admin/AdminSubscribers';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/admin/coupons" element={isAdmin ? <AdminCoupons /> : <Navigate to="/login" />} />
       <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
       <Route path="/admin/reviews" element={isAdmin ? <AdminReviews /> : <Navigate to="/login" />} />
+      <Route path="/admin/subscribers" element={isAdmin ? <AdminSubscribers /> : <Navigate to="/login" />} />
       
       {/* ✅ 2. Add EditProduct Route here */}
       <Route path="/admin/edit-product/:id" element={isAdmin ? <EditProduct /> : <Navigate to="/login" />} />
