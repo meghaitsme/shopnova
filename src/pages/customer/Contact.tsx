@@ -3,6 +3,7 @@ import { db } from '../../data/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import emailjs from '@emailjs/browser';
 
 export default function Contact() {
   const { user } = useAuth();
@@ -22,7 +23,9 @@ export default function Contact() {
     }
 
     setSubmitting(true);
+
     try {
+      // 1. Save to Firebase Database
       await addDoc(collection(db, 'messages'), {
         name,
         email,
@@ -32,6 +35,33 @@ export default function Contact() {
         createdAt: new Date().toISOString(),
         status: 'Unread'
       });
+
+      // 2. Send Email to Admin via EmailJS
+      try {
+        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const templateId = import.meta.env.VITE_EMAILJS_CONTACT_TEMPLATE_ID; // 👈 Make sure to add this to Vercel env variables
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+        if (serviceId && templateId && publicKey) {
+          await emailjs.send(
+            serviceId,
+            templateId,
+            {
+              from_name: name,
+              from_email: email,
+              subject: subject || 'No Subject',
+              message: message,
+            },
+            publicKey
+          );
+          console.log("Contact email sent to admin successfully!");
+        } else {
+          console.warn("EmailJS keys are missing. Email not sent, but message saved in DB.");
+        }
+      } catch (emailErr) {
+        // We don't fail the whole form if the email fails, since the DB save was successful
+        console.error("Email failed to send, but message is saved in DB", emailErr);
+      }
 
       showToast("Message sent successfully! We'll get back to you soon.", "success");
       setSubject('');
