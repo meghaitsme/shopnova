@@ -49,12 +49,6 @@ export default function Dashboard() {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, 5);
 
-  // Get Low Stock Products (< 10 items)
-  const lowStockProducts = products
-    .filter(p => (Number(p.stock) || 0) < 10)
-    .sort((a, b) => (Number(a.stock) || 0) - (Number(b.stock) || 0))
-    .slice(0, 5);
-
   // --- Calculate Chart Data (Last 7 Days) ---
   const chartData = [];
   const today = new Date();
