@@ -16,7 +16,7 @@ export default function Profile() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
-  // ✅ NEW: Profile Update State
+  // Profile Update State
   const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [phone, setPhone] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
@@ -27,7 +27,6 @@ export default function Profile() {
       return;
     }
 
-    // Fetch Orders
     const q = query(
       collection(db, 'orders'),
       where('customerEmail', '==', user.email),
@@ -56,17 +55,13 @@ export default function Profile() {
     }
   };
 
-  // ✅ NEW: Handle Profile Save
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     setIsUpdating(true);
     try {
-      // 1. Update Firebase Auth Display Name
       await updateProfile(user, { displayName });
-
-      // 2. Save extra details (like phone) to the users collection
       const userRef = doc(db, 'users', user.uid);
       await setDoc(userRef, { 
         email: user.email,
@@ -103,6 +98,48 @@ export default function Profile() {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Please log in to view your profile.</div>;
   }
 
+  // 🚨 Helper function for the timeline
+  const renderTimeline = (status: string) => {
+    const steps = ['Pending', 'Shipped', 'Delivered'];
+    const currentIndex = steps.indexOf(status);
+    
+    if (status === 'Cancelled') {
+      return (
+        <div style={{ marginTop: '20px', padding: '16px', backgroundColor: '#fee2e2', borderRadius: '6px', color: '#991b1b', fontWeight: 'bold', textAlign: 'center' }}>
+          This order was cancelled.
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
+        {/* Background Line */}
+        <div style={{ position: 'absolute', top: '15px', left: '10%', right: '10%', height: '4px', backgroundColor: '#e5e7eb', zIndex: 0 }}></div>
+        {/* Active Progress Line */}
+        <div style={{ position: 'absolute', top: '15px', left: '10%', width: `${(Math.max(0, currentIndex) / 2) * 80}%`, height: '4px', backgroundColor: '#10b981', zIndex: 1, transition: 'width 0.3s' }}></div>
+
+        {steps.map((step, index) => {
+          const isCompleted = index <= currentIndex;
+          return (
+            <div key={step} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 2, width: '33%' }}>
+              <div style={{ 
+                width: '34px', height: '34px', borderRadius: '50%', 
+                backgroundColor: isCompleted ? '#10b981' : '#e5e7eb',
+                color: isCompleted ? 'white' : '#9ca3af',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 'bold', marginBottom: '8px',
+                border: '4px solid white' // creates a gap between line and circle
+              }}>
+                {isCompleted ? '✓' : index + 1}
+              </div>
+              <span style={{ fontSize: '12px', fontWeight: 'bold', color: isCompleted ? '#111827' : '#9ca3af' }}>{step}</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div style={{ padding: '40px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
@@ -120,7 +157,7 @@ export default function Profile() {
         </button>
       </div>
 
-      {/* ✅ NEW: Profile Settings Form */}
+      {/* Profile Settings Form */}
       <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '40px' }}>
         <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Profile Settings</h2>
         <form onSubmit={handleUpdateProfile} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
@@ -220,6 +257,13 @@ export default function Profile() {
               {/* Expandable Order Details */}
               {expandedOrder === order.id && (
                 <div style={{ padding: '24px' }}>
+                  
+                  {/* ✅ NEW: Order Tracking Timeline */}
+                  <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                    <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#374151', textTransform: 'uppercase' }}>Order Status</h4>
+                    {renderTimeline(order.status)}
+                  </div>
+
                   <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#374151' }}>Items in this order:</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {order.items?.map((item: any, idx: number) => (
