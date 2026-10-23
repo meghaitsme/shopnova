@@ -1,10 +1,10 @@
 ﻿import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, increment,setDoc } from 'firebase/firestore';
 
 export default function Profile() {
   const { user, logout } = useAuth(); 
@@ -78,14 +78,25 @@ export default function Profile() {
     }
   };
 
-  const handleCancelOrder = async (orderId: string) => {
+    const handleCancelOrder = async (orderId: string, items: any[]) => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
 
     setCancellingId(orderId);
     try {
+      // 1. Change order status to Cancelled
       const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, { status: 'Cancelled' });
-      showToast("Order cancelled successfully.", "success");
+
+      // 2. Restock the inventory
+      for (const item of items) {
+        const productRef = doc(db, 'products', item._id || item.productId);
+        // Use Firebase increment to safely add the quantity back
+        await updateDoc(productRef, {
+          stock: increment(item.quantity)
+        });
+      }
+
+      showToast("Order cancelled and items restocked.", "success");
     } catch (err) {
       console.error("Error cancelling order:", err);
       showToast("Failed to cancel order.", "error");
@@ -237,12 +248,12 @@ export default function Profile() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {order.status === 'Pending' && (
                     <button 
-                      onClick={() => handleCancelOrder(order.id)}
-                      disabled={cancellingId === order.id}
-                      style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-                    >
-                      {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
-                    </button>
+  onClick={() => handleCancelOrder(order.id, order.items)}
+  disabled={cancellingId === order.id}
+  style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+>
+  {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
+</button>
                   )}
                   
                   <button 

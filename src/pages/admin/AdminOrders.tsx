@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '../../data/firebase'; 
-import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, increment } from 'firebase/firestore';
+import emailjs from '@emailjs/browser';
+import { useToast } from '../../context/ToastContext';
 
 export type OrderStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
 
@@ -35,6 +37,8 @@ export default function Orders() {
   const [error, setError] = useState<string | null>(null);
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   // 1. Load Data
   useEffect(() => {
@@ -76,13 +80,56 @@ export default function Orders() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Actions
+  // 2. Actions (Updated with Restock & Email)
   const handleStatusChange = async (id: string, newStatus: OrderStatus) => {
+    setUpdatingId(id);
     try {
+      const orderToUpdate = orders.find(o => o.id === id);
+      if (!orderToUpdate) return;
+
+      // 1. Update the order status
       await updateDoc(doc(db, 'orders', id), { status: newStatus });
+
+      // 2. If it was just cancelled, restock the items
+      if (newStatus === 'Cancelled' && orderToUpdate.status !== 'Cancelled') {
+        for (const item of orderToUpdate.items) {
+          const productRef = doc(db, 'products', item.productId || (item as any)._id);
+          await updateDoc(productRef, {
+            stock: increment(item.quantity)
+          });
+        }
+        console.log("Inventory restocked for cancelled order.");
+      }
+
+      // 3. Send EmailJS status update
+      const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+      const templateId = import.meta.env.VITE_EMAILJS_STATUS_TEMPLATE_ID;
+      const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+      if (serviceId && templateId && publicKey && orderToUpdate.customerEmail) {
+        try {
+          await emailjs.send(
+            serviceId,
+            templateId,
+            {
+              to_name: orderToUpdate.customerName,
+              to_email: orderToUpdate.customerEmail,
+              order_id: id,
+              order_status: newStatus
+            },
+            publicKey
+          );
+          console.log(`Status update email sent to ${orderToUpdate.customerEmail}`);
+        } catch (emailErr) {
+          console.error("Failed to send status update email:", emailErr);
+        }
+      }
+
     } catch (err) {
       console.error("Error updating status:", err);
-      alert("Failed to update status.");
+      showToast("Failed to update status.", "error");
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -180,7 +227,7 @@ export default function Orders() {
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Live Orders</h1>
       </div>
 
-      {/* ✅ NEW: Quick Stats Grid */}
+      {/* Quick Stats Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div style={{ backgroundColor: 'white', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #10b981', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <p style={{ margin: 0, fontSize: '12px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase' }}>Revenue</p>
@@ -262,19 +309,23 @@ export default function Orders() {
                   </td>
                   <td style={{ padding: '12px', fontWeight: 'bold' }}>₹{order.total.toFixed(2)}</td>
                   <td style={{ padding: '12px' }}>
-                    <select 
-                      value={order.status}
-                      onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                      style={{ 
-                        padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc',
-                        backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Pending' ? '#fef9c3' : order.status === 'Shipped' ? '#dbeafe' : '#fee2e2'
-                      }}
-                    >
-                      <option value="Pending">Pending</option>
-                      <option value="Shipped">Shipped</option>
-                      <option value="Delivered">Delivered</option>
-                      <option value="Cancelled">Cancelled</option>
-                    </select>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <select 
+                        value={order.status}
+                        disabled={updatingId === order.id}
+                        onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                        style={{ 
+                          padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc',
+                          backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Pending' ? '#fef9c3' : order.status === 'Shipped' ? '#dbeafe' : '#fee2e2'
+                        }}
+                      >
+                        <option value="Pending">Pending</option>
+                        <option value="Shipped">Shipped</option>
+                        <option value="Delivered">Delivered</option>
+                        <option value="Cancelled">Cancelled</option>
+                      </select>
+                      {updatingId === order.id && <span style={{ fontSize: '12px', color: '#6b7280' }}>Sending email...</span>}
+                    </div>
                   </td>
                   <td style={{ padding: '12px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                     <button 
