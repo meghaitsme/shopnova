@@ -1,16 +1,17 @@
 ﻿import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Profile() {
-  const { user, logout } = useAuth(); // Assuming your AuthContext has a logout function
+  const { user, logout } = useAuth(); 
   const navigate = useNavigate();
 
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.email) {
@@ -18,7 +19,6 @@ export default function Profile() {
       return;
     }
 
-    // Fetch orders ONLY for this user's email, newest first
     const q = query(
       collection(db, 'orders'),
       where('customerEmail', '==', user.email),
@@ -44,6 +44,23 @@ export default function Profile() {
     if (logout) {
       await logout();
       navigate('/login');
+    }
+  };
+
+  // ✅ NEW: Handle Order Cancellation
+  const handleCancelOrder = async (orderId: string) => {
+    if (!window.confirm("Are you sure you want to cancel this order?")) return;
+
+    setCancellingId(orderId);
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      await updateDoc(orderRef, { status: 'Cancelled' });
+      alert("Order cancelled successfully.");
+    } catch (err) {
+      console.error("Error cancelling order:", err);
+      alert("Failed to cancel order. Please try again.");
+    } finally {
+      setCancellingId(null);
     }
   };
 
@@ -95,7 +112,7 @@ export default function Profile() {
                 </div>
                 <div>
                   <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total</p>
-                  <p style={{ margin: 0, fontWeight: 'bold' }}>₹{order.total?.toFixed(2)}</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>₹{Number(order.total).toFixed(2)}</p>
                 </div>
                 <div>
                   <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order ID</p>
@@ -110,12 +127,26 @@ export default function Profile() {
                     {order.status || 'Pending'}
                   </span>
                 </div>
-                <button 
-                  onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                  style={{ background: 'none', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  {expandedOrder === order.id ? 'Hide Details' : 'View Details'}
-                </button>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {/* ✅ NEW: Cancel Button (Only shows if Pending) */}
+                  {order.status === 'Pending' && (
+                    <button 
+                      onClick={() => handleCancelOrder(order.id)}
+                      disabled={cancellingId === order.id}
+                      style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                    >
+                      {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    style={{ background: 'none', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    {expandedOrder === order.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                </div>
               </div>
 
               {/* Expandable Order Details */}
@@ -125,8 +156,8 @@ export default function Profile() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {order.items?.map((item: any, idx: number) => (
                       <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '12px' }}>
-                        {item.imageUrl ? (
-                          <img src={item.imageUrl} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
+                        {item.imageUrl || item.image ? (
+                          <img src={item.imageUrl || item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
                         ) : (
                           <div style={{ width: '50px', height: '50px', backgroundColor: '#f3f4f6', borderRadius: '4px' }} />
                         )}
