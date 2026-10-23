@@ -15,7 +15,6 @@ export interface Order {
 const LOG_PREFIX = '[Orders]';
 const STORAGE_KEY = 'shopnova_admin_orders';
 
-// --- Initial Mock Data (if storage is empty) ---
 const DEFAULT_ORDERS: Order[] = [
   { id: 'ORD-1001', customerName: 'Alice Johnson', customerEmail: 'alice@example.com', total: 114.99, status: 'Delivered', createdAt: new Date().toISOString() },
   { id: 'ORD-1002', customerName: 'Bob Smith', customerEmail: 'bob@example.com', total: 129.00, status: 'Shipped', createdAt: new Date().toISOString() },
@@ -28,6 +27,12 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  // --- New Order Form State ---
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [newTotal, setNewTotal] = useState('');
+
   // 1. Load Data
   useEffect(() => {
     try {
@@ -36,12 +41,9 @@ export default function Orders() {
       
       if (saved) {
         const parsed = JSON.parse(saved);
-        // Basic validation
         if (Array.isArray(parsed)) {
           setOrders(parsed);
           console.info(`${LOG_PREFIX} Loaded ${parsed.length} orders from storage.`);
-        } else {
-          throw new Error('Invalid data format in storage');
         }
       } else {
         console.info(`${LOG_PREFIX} No saved orders, loading defaults.`);
@@ -49,9 +51,7 @@ export default function Orders() {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_ORDERS));
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error loading orders';
-      console.error(`${LOG_PREFIX} Error:`, msg);
-      setError(msg);
+      setError(err instanceof Error ? err.message : 'Error loading orders');
     } finally {
       setLoading(false);
     }
@@ -62,7 +62,6 @@ export default function Orders() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrders));
       setOrders(newOrders);
-      console.info(`${LOG_PREFIX} Saved orders to storage.`);
     } catch (err: unknown) {
       console.error(`${LOG_PREFIX} Failed to save:`, err);
       alert('Failed to save changes.');
@@ -78,9 +77,33 @@ export default function Orders() {
 
   const handleDelete = (id: string) => {
     if (!window.confirm(`Delete order ${id}?`)) return;
-    console.info(`${LOG_PREFIX} Deleting order ${id}`);
     const updated = orders.filter(o => o.id !== id);
     saveOrders(updated);
+  };
+
+  const handleAddNewOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newName || !newEmail || !newTotal) {
+      alert("Please fill all fields");
+      return;
+    }
+
+    const newOrder: Order = {
+      id: `ORD-${Math.floor(1000 + Math.random() * 9000)}`, // Generates a random 4 digit ID
+      customerName: newName,
+      customerEmail: newEmail,
+      total: parseFloat(newTotal),
+      status: 'Pending',
+      createdAt: new Date().toISOString()
+    };
+
+    saveOrders([newOrder, ...orders]); // Add to top of list
+    setIsAdding(false);
+    
+    // Clear form
+    setNewName('');
+    setNewEmail('');
+    setNewTotal('');
   };
 
   // 4. Filter
@@ -101,17 +124,49 @@ export default function Orders() {
   return (
     <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold' }}>Orders</h1>
-        <input 
-          type="text" 
-          placeholder="Search by ID, Name, or Email..." 
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px', width: '300px' }}
-        />
+      {/* Header & Controls */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Orders</h1>
+        
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <input 
+            type="text" 
+            placeholder="Search..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+          <button 
+            onClick={() => setIsAdding(!isAdding)}
+            style={{ padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            {isAdding ? 'Cancel' : '+ Add Order'}
+          </button>
+        </div>
       </div>
 
+      {/* Add Order Form */}
+      {isAdding && (
+        <form onSubmit={handleAddNewOrder} style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0', display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>Customer Name</label>
+            <input required type="text" value={newName} onChange={e => setNewName(e.target.value)} style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>Email</label>
+            <input required type="email" value={newEmail} onChange={e => setNewEmail(e.target.value)} style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '12px', marginBottom: '4px' }}>Total ($)</label>
+            <input required type="number" step="0.01" min="0" value={newTotal} onChange={e => setNewTotal(e.target.value)} style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100px' }} />
+          </div>
+          <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+            Save Order
+          </button>
+        </form>
+      )}
+
+      {/* Table */}
       <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead style={{ backgroundColor: '#f3f4f6', borderBottom: '1px solid #e5e7eb' }}>
