@@ -21,20 +21,16 @@ import AddProduct from './pages/AddProduct';
 import Dashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminCoupons from './pages/admin/AdminCoupons';
-function Orders() {
-  return <div style={{ padding: '24px' }}>Orders page is unavailable.</div>;
-}
-
+import Orders from './pages/admin/Orders'; // <--- Imported exactly ONCE here
 
 function AppRoutes() {
   const { user, loading } = useAuth();
 
-  // 🚨 CRITICAL: Wait for Firebase to check the user before redirecting
   if (loading) {
     return <div style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
   }
 
-  const isAdmin = user?.isAdmin; // 👈 Use the custom claim
+  const isAdmin = user?.isAdmin;
 
   console.log("👤 [App] Current User:", user?.email, "| Is Admin:", isAdmin);
 
@@ -57,10 +53,9 @@ function AppRoutes() {
       <Route path="/admin/dashboard" element={isAdmin ? <Dashboard /> : <Navigate to="/login" />} />
       <Route path="/admin/products" element={isAdmin ? <AdminProducts /> : <Navigate to="/login" />} />
       <Route path="/admin/coupons" element={isAdmin ? <AdminCoupons /> : <Navigate to="/login" />} />
-
-      {/* 👈 2. ADD THIS ROUTE HERE */}
+      
+      {/* ADMIN ORDERS ROUTE */}
       <Route path="/admin/orders" element={isAdmin ? <Orders /> : <Navigate to="/login" />} />
-
     </Routes>
   );
 }
