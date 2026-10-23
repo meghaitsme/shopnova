@@ -84,6 +84,7 @@ export default function Navbar() {
               <Link to="/admin/orders" onClick={closeMenu} style={mobileLinkStyle}>Orders</Link>
               <Link to="/admin/coupons" onClick={closeMenu} style={mobileLinkStyle}>Coupons</Link>
               <Link to="/admin/users" onClick={closeMenu} style={mobileLinkStyle}>Users</Link>
+              <Link to="/admin/reviews" style={linkStyle}>Reviews</Link>
             </>
           )}
 
