@@ -5,6 +5,7 @@ import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext'; 
 import { useToast } from '../../context/ToastContext';
+import emailjs from '@emailjs/browser'; // 👈 Import EmailJS
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -23,14 +24,13 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
-  // ✅ NEW: Shipping Logic
   const FREE_SHIPPING_THRESHOLD = 500;
   const SHIPPING_FEE = 50;
   
   const shippingCost = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
   const finalTotal = cartTotal + shippingCost - discount;
 
-  // 1. Fetch Available Coupons on Load
+  // 1. Fetch Available Coupons
   useEffect(() => {
     async function fetchCoupons() {
       try {
@@ -95,7 +95,7 @@ export default function Checkout() {
     }
   };
 
-  // 3. Place Order Logic
+  // 3. Place Order & Send Email
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -124,7 +124,34 @@ export default function Checkout() {
         createdAt: new Date().toISOString()
       };
 
-      await addDoc(collection(db, 'orders'), orderData);
+      // ✅ 1. Save order to Firebase
+      const docRef = await addDoc(collection(db, 'orders'), orderData);
+      
+      // ✅ 2. Send confirmation email via EmailJS
+      try {
+        const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+        const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+        const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+        if (serviceId && templateId && publicKey) {
+          await emailjs.send(
+            serviceId,
+            templateId,
+            {
+              to_name: user.displayName || 'Customer',
+              to_email: user.email,
+              order_id: docRef.id,
+              order_total: finalTotal.toFixed(2),
+              order_status: 'Pending'
+            },
+            publicKey
+          );
+          console.log("Confirmation email sent successfully!");
+        }
+      } catch (emailErr) {
+        // We don't fail the order if the email fails
+        console.error("Failed to send confirmation email:", emailErr);
+      }
       
       if (clearCart) clearCart();
       
@@ -172,40 +199,12 @@ export default function Checkout() {
         {/* Right Side: Order Summary & Coupon */}
         <div style={{ backgroundColor: '#f9fafb', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', height: 'fit-content' }}>
           <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Order Summary</h2>
-
-           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
-              <span>Subtotal</span>
-              {/* ✅ Show original cart total if bulk discount was applied */}
-              <span style={{ textDecoration: discount > 0 ? 'line-through' : 'none' }}>
-                ₹{(cartTotal + (cart.reduce((sum, i) => i.quantity >= 2 ? sum + ((i.price * i.quantity) * 0.1) : sum, 0))).toFixed(2)}
-              </span>
-            </div>
-
-            {/* ✅ NEW: Show Bulk Discount Savings (if any) */}
-            {cart.some((i: any) => i.quantity >= 2) && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10b981', fontWeight: 'bold' }}>
-                <span>Bulk Discount Savings</span>
-                <span>
-                  -₹{cart.reduce((sum, i) => i.quantity >= 2 ? sum + ((i.price * i.quantity) * 0.1) : sum, 0).toFixed(2)}
-                </span>
-              </div>
-            )}
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
-              <span>Shipping</span>
-              <span style={{ color: shippingCost === 0 ? '#10b981' : '#4b5563', fontWeight: shippingCost === 0 ? 'bold' : 'normal' }}>
-                {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
-              </span>
-            </div>
-            
-            {/* ... Coupon Section and Total ... */}
           
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
             <span>Subtotal</span>
             <span>₹{cartTotal.toFixed(2)}</span>
           </div>
 
-          {/* ✅ NEW: Shipping Fee display */}
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
             <span>Shipping</span>
             <span style={{ color: shippingCost === 0 ? '#10b981' : '#4b5563', fontWeight: shippingCost === 0 ? 'bold' : 'normal' }}>
