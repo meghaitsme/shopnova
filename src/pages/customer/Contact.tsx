@@ -1,105 +1,140 @@
 ﻿import { useState } from 'react';
-import api from '../../api/axios';
+import { db } from '../../data/firebase';
+import { collection, addDoc } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 export default function Contact() {
-  const [form, setForm] = useState({ name: '', email: '', message: '' });
-  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
-  const [errorMsg, setErrorMsg] = useState('');
+  const { user } = useAuth();
+  const { showToast } = useToast();
+
+  const [name, setName] = useState(user?.displayName || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStatus('sending');
-    setErrorMsg('');
+    if (!name || !email || !message) {
+      showToast("Please fill in all required fields.", "error");
+      return;
+    }
 
+    setSubmitting(true);
     try {
-      const { data } = await api.post('/contact', form);
-      setStatus('sent');
-      setForm({ name: '', email: '', message: '' });
+      await addDoc(collection(db, 'messages'), {
+        name,
+        email,
+        subject,
+        message,
+        userId: user?.uid || 'Guest',
+        createdAt: new Date().toISOString(),
+        status: 'Unread'
+      });
 
-      // Auto-hide success after 6s
-      setTimeout(() => setStatus('idle'), 6000);
-
-      if (data.emailSent === false) {
-        console.warn('Message saved, but email delivery failed');
-      }
-    } catch (err: any) {
-      setStatus('error');
-      const msg =
-        err?.response?.data?.error ||
-        err?.message ||
-        'Could not send your message. Please try again.';
-      setErrorMsg(msg);
+      showToast("Message sent successfully! We'll get back to you soon.", "success");
+      setSubject('');
+      setMessage('');
+    } catch (err) {
+      console.error("Error sending message:", err);
+      showToast("Failed to send message. Please try again.", "error");
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div className="contact-container">
-      <h1>Contact Us</h1>
-      <p className="muted">We&apos;d love to hear from you. Send us a message!</p>
+    <div style={{ padding: '60px 20px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif', backgroundColor: '#f9fafb', minHeight: '80vh' }}>
+      
+      <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ fontSize: '36px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Contact Us</h1>
+        <p style={{ color: '#6b7280', fontSize: '18px', margin: 0 }}>
+          Have a question or need help with an order? We're here to help.
+        </p>
+      </div>
 
-      <form className="contact-form" onSubmit={handleSubmit}>
-        <label>
-          Your Name
-          <input
-            type="text"
-            required
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            placeholder="Jane Doe"
-            disabled={status === 'sending'}
-          />
-        </label>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
+        
+        {/* Left Side: Contact Info */}
+        <div style={{ backgroundColor: 'white', padding: '32px', borderRadius: '8px', border: '1px solid #e5e7eb', height: 'fit-content' }}>
+          <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 24px 0' }}>Get in Touch</h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div>
+              <p style={{ margin: '0 0 4px 0', fontWeight: 'bold', fontSize: '14px', color: '#374151' }}>📧 Email Us</p>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '15px' }}>support@shopnova.com</p>
+            </div>
+            <div>
+              <p style={{ margin: '0 0 4px 0', fontWeight: 'bold', fontSize: '14px', color: '#374151' }}>📞 Call Us</p>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '15px' }}>+91 98765 43210</p>
+            </div>
+            <div>
+              <p style={{ margin: '0 0 4px 0', fontWeight: 'bold', fontSize: '14px', color: '#374151' }}>📍 Visit Us</p>
+              <p style={{ margin: 0, color: '#6b7280', fontSize: '15px', lineHeight: '1.5' }}>
+                123 Commerce Street<br/>
+                Bangalore, Karnataka 560001<br/>
+                India
+              </p>
+            </div>
+          </div>
+        </div>
 
-        <label>
-          Email
-          <input
-            type="email"
-            required
-            value={form.email}
-            onChange={(e) => setForm({ ...form, email: e.target.value })}
-            placeholder="jane@example.com"
-            disabled={status === 'sending'}
-          />
-        </label>
+        {/* Right Side: Contact Form */}
+        <form onSubmit={handleSubmit} style={{ backgroundColor: 'white', padding: '32px', borderRadius: '8px', border: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Your Name</label>
+            <input 
+              type="text" 
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }}
+            />
+          </div>
 
-        <label>
-          Message
-          <textarea
-            required
-            rows={6}
-            value={form.message}
-            onChange={(e) => setForm({ ...form, message: e.target.value })}
-            placeholder="How can we help?"
-            disabled={status === 'sending'}
-          />
-        </label>
+          <div>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Your Email</label>
+            <input 
+              type="email" 
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }}
+            />
+          </div>
 
-        <button
-          type="submit"
-          className="btn-primary"
-          disabled={status === 'sending'}
-        >
-          {status === 'sending' ? (
-            <>
-              <i className="bx bx-loader-alt bx-spin" /> Sending…
-            </>
-          ) : (
-            <>
-              <i className="bx bx-send" /> Send Message
-            </>
-          )}
-        </button>
+          <div>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Subject (Optional)</label>
+            <input 
+              type="text" 
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }}
+            />
+          </div>
 
-        {status === 'sent' && (
-          <p className="form-success">
-            ✅ Thanks! We&apos;ll get back to you soon.
-          </p>
-        )}
+          <div>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Message</label>
+            <textarea 
+              required
+              rows={5}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', resize: 'vertical' }}
+            />
+          </div>
 
-        {status === 'error' && (
-          <p className="form-error">❌ {errorMsg}</p>
-        )}
-      </form>
+          <button 
+            type="submit" 
+            disabled={submitting}
+            style={{ padding: '14px', backgroundColor: submitting ? '#9ca3af' : '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: submitting ? 'not-allowed' : 'pointer', marginTop: '8px' }}
+          >
+            {submitting ? 'Sending...' : 'Send Message'}
+          </button>
+        </form>
+
+      </div>
     </div>
   );
 }

@@ -27,6 +27,8 @@ import AdminUsers from './pages/admin/AdminUsers';
 import ScrollToTop from './components/common/ScrollToTop';
 import AdminReviews from './pages/admin/AdminReviews';
 import AdminSubscribers from './pages/admin/AdminSubscribers';
+import Contact from './pages/customer/Contact';
+import AdminMessages from './pages/admin/AdminMessages';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -52,6 +54,7 @@ function AppRoutes() {
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/order-success" element={<OrderSuccess />} />
       <Route path="/wishlist" element={<Wishlist />} />
+      <Route path="/contact" element={<Contact />} />
 
       {/* PROTECTED ADMIN ROUTES */}
       <Route path="/admin/add-product" element={isAdmin ? <AddProduct /> : <Navigate to="/login" />} />
@@ -65,7 +68,9 @@ function AppRoutes() {
       
       {/* ✅ 2. Add EditProduct Route here */}
       <Route path="/admin/edit-product/:id" element={isAdmin ? <EditProduct /> : <Navigate to="/login" />} />
+      <Route path="/admin/messages" element={isAdmin ? <AdminMessages /> : <Navigate to="/login" />} />
     </Routes>
+    
   );
 }
 

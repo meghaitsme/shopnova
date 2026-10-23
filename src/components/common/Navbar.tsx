@@ -43,13 +43,17 @@ export default function Navbar() {
 
           {isAdmin && (
             <>
+            
               <Link to="/admin/dashboard" style={linkStyle}>Dashboard</Link>
+              <Link to="/admin/messages" style={linkStyle}>Messages</Link>
               <Link to="/admin/products" style={linkStyle}>Manage Products</Link>
               <Link to="/admin/orders" style={linkStyle}>Orders</Link>
               <Link to="/admin/coupons" style={linkStyle}>Coupons</Link>
               <Link to="/admin/users" style={linkStyle}>Users</Link>
               <Link to="/admin/reviews" style={linkStyle}>Reviews</Link>
               <Link to="/admin/subscribers" style={linkStyle}>Subscribers</Link>
+              <Link to="/contact" style={linkStyle}>Contact Us</Link>
+              
             </>
           )}
 
