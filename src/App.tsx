@@ -24,6 +24,7 @@ import AdminCoupons from './pages/admin/AdminCoupons';
 import Orders from './pages/admin/Orders';
 import EditProduct from './pages/admin/EditProduct'; // ✅ 1. Import added here
 import AdminUsers from './pages/admin/AdminUsers';
+import ScrollToTop from './components/common/ScrollToTop';
 
 function AppRoutes() {
   const { user, loading } = useAuth();
@@ -68,6 +69,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Navbar />
+      <ScrollToTop /> {/* 👈 Add this here */}
       <AppRoutes />
     </BrowserRouter>
   );
