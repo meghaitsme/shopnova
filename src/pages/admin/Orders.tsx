@@ -1,21 +1,21 @@
 import { useState, useEffect, useMemo } from 'react';
-// ⚠️ Double check this path points to your actual firebase file!
-import { db } from '../../data/firebase';
+import { db } from '../../data/firebase'; 
 import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 
 export type OrderStatus = 'Pending' | 'Shipped' | 'Delivered' | 'Cancelled';
 
 export interface OrderItem {
-  category: string;
+  category?: string;
   name: string;
   price: number;
   quantity: number;
+  image?: string; // Optional: in case your DB has image URLs
 }
 
 export interface Order {
   id: string;
   customerName: string;
-  customerEmail?: string; // May be optional if not saved in checkout
+  customerEmail?: string;
   address?: string;
   total: number;
   status: OrderStatus;
@@ -28,13 +28,13 @@ export default function Orders() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  
+  // Modal State
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
-  // 1. Load Data from Firebase in Real-Time
+  // 1. Load Data
   useEffect(() => {
     console.info('[Orders] Connecting to Firebase...');
-    
-    // We use onSnapshot so if a customer places an order right now, it pops up on your screen instantly!
     const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -42,7 +42,6 @@ export default function Orders() {
       snapshot.forEach((docSnap) => {
         const data = docSnap.data();
         
-        // Calculate total if it doesn't exist, by adding up the items
         let calculatedTotal = data.total;
         if (!calculatedTotal && data.items) {
           calculatedTotal = data.items.reduce((sum: number, item: OrderItem) => sum + (item.price * item.quantity), 0);
@@ -50,9 +49,9 @@ export default function Orders() {
 
         fetchedOrders.push({
           id: docSnap.id,
-          customerName: data.customerName || 'Unknown',
+          customerName: data.customerName || data.name || 'Unknown',
           customerEmail: data.customerEmail || data.email || 'No email provided',
-          address: data.address || '',
+          address: data.address || 'No address provided',
           total: calculatedTotal || 0,
           status: data.status || 'Pending',
           createdAt: data.createdAt,
@@ -61,10 +60,9 @@ export default function Orders() {
       });
       setOrders(fetchedOrders);
       setLoading(false);
-      console.info(`[Orders] Loaded ${fetchedOrders.length} orders.`);
     }, (err) => {
       console.error('[Orders] Firebase error:', err);
-      setError("Failed to load. Check Firestore rules.");
+      setError("Failed to load orders.");
       setLoading(false);
     });
 
@@ -112,7 +110,7 @@ export default function Orders() {
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Live Orders</h1>
         <input 
           type="text" 
-          placeholder="Search by name..." 
+          placeholder="Search by name or ID..." 
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}
@@ -125,89 +123,123 @@ export default function Orders() {
             <tr>
               <th style={{ padding: '12px' }}>Date</th>
               <th style={{ padding: '12px' }}>Customer</th>
-              <th style={{ padding: '12px' }}>Items</th>
               <th style={{ padding: '12px' }}>Total</th>
               <th style={{ padding: '12px' }}>Status</th>
               <th style={{ padding: '12px', textAlign: 'right' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
-                  No orders found.
+            {filteredOrders.map((order) => (
+              <tr key={order.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={{ padding: '12px', fontSize: '12px', color: '#6b7280' }}>
+                  {order.createdAt?.toDate 
+                    ? order.createdAt.toDate().toLocaleDateString() 
+                    : new Date(order.createdAt || Date.now()).toLocaleDateString()}
+                </td>
+                <td style={{ padding: '12px' }}>
+                  <div style={{ fontWeight: 'bold' }}>{order.customerName}</div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>{order.address}</div>
+                </td>
+                <td style={{ padding: '12px', fontWeight: 'bold' }}>${order.total.toFixed(2)}</td>
+                <td style={{ padding: '12px' }}>
+                  <select 
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                    style={{ 
+                      padding: '4px 8px', borderRadius: '4px', border: '1px solid #ccc',
+                      backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Pending' ? '#fef9c3' : '#dbeafe'
+                    }}
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Shipped">Shipped</option>
+                    <option value="Delivered">Delivered</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </td>
+                <td style={{ padding: '12px', textAlign: 'right', display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                  <button 
+                    onClick={() => setSelectedOrder(order)}
+                    style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    View Details
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(order.id)}
+                    style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                  >
+                    Delete
+                  </button>
                 </td>
               </tr>
-            ) : (
-              filteredOrders.map((order) => (
-                <>
-                  <tr key={order.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '12px', fontSize: '12px', color: '#6b7280' }}>
-                      {/* Handle Firebase Timestamp or String */}
-                      {order.createdAt?.toDate 
-                        ? order.createdAt.toDate().toLocaleDateString() 
-                        : new Date(order.createdAt).toLocaleDateString()}
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      <div style={{ fontWeight: 'bold' }}>{order.customerName}</div>
-                      <div style={{ fontSize: '12px', color: '#6b7280' }}>{order.address}</div>
-                    </td>
-                    <td style={{ padding: '12px' }}>
-                      <button 
-                        onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                        style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', textDecoration: 'underline' }}
-                      >
-                        {order.items?.length || 0} items
-                      </button>
-                    </td>
-                    <td style={{ padding: '12px' }}>${order.total.toFixed(2)}</td>
-                    <td style={{ padding: '12px' }}>
-                      <select 
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                        style={{ 
-                          padding: '4px 8px', 
-                          borderRadius: '4px', 
-                          border: '1px solid #ccc',
-                          backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Pending' ? '#fef9c3' : '#dbeafe'
-                        }}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                    <td style={{ padding: '12px', textAlign: 'right' }}>
-                      <button 
-                        onClick={() => handleDelete(order.id)}
-                        style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer' }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                  {/* Expanded Items View */}
-                  {expandedOrder === order.id && (
-                    <tr key={`${order.id}-details`} style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-                      <td colSpan={6} style={{ padding: '12px' }}>
-                        <strong style={{ fontSize: '12px' }}>Order Items:</strong>
-                        <ul style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '14px' }}>
-                          {order.items?.map((item, idx) => (
-                            <li key={idx}>
-                              {item.name} (x{item.quantity}) - ${item.price.toFixed(2)}
-                            </li>
-                          ))}
-                        </ul>
-                      </td>
-                    </tr>
-                  )}
-                </>
-              ))
-            )}
+            ))}
           </tbody>
         </table>
       </div>
+
+      {/* --- ORDER DETAILS MODAL --- */}
+      {selectedOrder && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+            
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>Order Details</h2>
+                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280', fontFamily: 'monospace' }}>ID: {selectedOrder.id}</p>
+              </div>
+              <button onClick={() => setSelectedOrder(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
+            </div>
+
+            {/* Customer Info */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+              <div>
+                <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#6b7280', marginBottom: '4px' }}>Customer</h3>
+                <p style={{ margin: 0, fontWeight: 'bold' }}>{selectedOrder.customerName}</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#4b5563' }}>{selectedOrder.customerEmail}</p>
+              </div>
+              <div>
+                <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#6b7280', marginBottom: '4px' }}>Shipping Address</h3>
+                <p style={{ margin: 0, fontSize: '14px' }}>{selectedOrder.address || 'No address provided'}</p>
+              </div>
+            </div>
+
+            {/* Items List */}
+            <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#6b7280', marginBottom: '8px' }}>Order Items</h3>
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', marginBottom: '24px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead style={{ backgroundColor: '#f9fafb' }}>
+                  <tr>
+                    <th style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>Item</th>
+                    <th style={{ textAlign: 'center', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>Qty</th>
+                    <th style={{ textAlign: 'right', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>Price</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {selectedOrder.items?.map((item, idx) => (
+                    <tr key={idx}>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6' }}>{item.name}</td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', textAlign: 'center' }}>{item.quantity}</td>
+                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', textAlign: 'right' }}>${(item.price * item.quantity).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                  {(!selectedOrder.items || selectedOrder.items.length === 0) && (
+                    <tr><td colSpan={3} style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>No items found.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Total */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '2px solid #e5e7eb', paddingTop: '16px' }}>
+              <div style={{ textAlign: 'right' }}>
+                <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Total Amount</p>
+                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>${selectedOrder.total.toFixed(2)}</p>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
     </div>
   );
 }
