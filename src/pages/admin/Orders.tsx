@@ -17,8 +17,10 @@ export interface Order {
   customerName: string;
   customerEmail?: string;
   address?: string;
-  phone?: string;       // ✅ Added for CSV export
-  couponUsed?: string;  // ✅ Added for CSV export
+  phone?: string;       
+  couponUsed?: string;  
+  subtotal?: number;    // ✅ Added for Modal
+  shippingCost?: number; // ✅ Added for Modal
   total: number;
   status: OrderStatus;
   createdAt: any;
@@ -55,6 +57,8 @@ export default function Orders() {
           address: data.address || 'No address provided',
           phone: data.phone || '',
           couponUsed: data.couponUsed || '',
+          subtotal: data.subtotal,
+          shippingCost: data.shippingCost,
           total: calculatedTotal || 0,
           status: data.status || 'Pending',
           createdAt: data.createdAt,
@@ -182,7 +186,6 @@ export default function Orders() {
             style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}
           />
 
-          {/* ✅ NEW: Export CSV Button */}
           <button 
             onClick={handleExportCSV}
             style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
@@ -309,16 +312,28 @@ export default function Orders() {
               </table>
             </div>
 
+            {/* ✅ UPDATED: Subtotal, Shipping, and Total Breakdown */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '2px solid #e5e7eb', paddingTop: '16px' }}>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Total Amount</p>
-                <p style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>₹{selectedOrder.total.toFixed(2)}</p>
+              <div style={{ textAlign: 'right', width: '200px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
+                  <span>Subtotal:</span>
+                  <span>₹{Number(selectedOrder.subtotal || selectedOrder.total).toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
+                  <span>Shipping:</span>
+                  <span>{selectedOrder.shippingCost === 0 ? 'FREE' : `₹${Number(selectedOrder.shippingCost || 0).toFixed(2)}`}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px', borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
+                  <span>Total:</span>
+                  <span>₹{selectedOrder.total.toFixed(2)}</span>
+                </div>
               </div>
             </div>
 
           </div>
         </div>
       )}
+      
     </div>
   );
 }

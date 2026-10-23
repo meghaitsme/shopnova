@@ -1,16 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
 import { collection, addDoc, getDocs, query, where } from 'firebase/firestore';
 import { useAuth } from '../../context/AuthContext';
-// 👇 CHANGE THIS IMPORT if your cart context is named differently
 import { useCart } from '../../context/CartContext'; 
+import { useToast } from '../../context/ToastContext';
 
 export default function Checkout() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // 👇 We only grab 'cart' and 'clearCart' from context now
-  const { cart, clearCart } = useCart(); 
+  const { cart, clearCart, totalPrice: cartTotal } = useCart(); 
+  const { showToast } = useToast();
 
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
@@ -23,20 +23,14 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
-  // ✅ FIX: Calculate cartTotal manually based on your cart items
-  // (This assumes your cart items have a 'price' and 'quantity' property)
-  const cartTotal = useMemo(() => {
-    if (!cart || cart.length === 0) return 0;
-    return cart.reduce((total: number, item: any) => {
-      const price = Number(item.price) || 0;
-      const qty = Number(item.quantity) || 1;
-      return total + (price * qty);
-    }, 0);
-  }, [cart]);
+  // ✅ NEW: Shipping Logic
+  const FREE_SHIPPING_THRESHOLD = 500;
+  const SHIPPING_FEE = 50;
+  
+  const shippingCost = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const finalTotal = cartTotal + shippingCost - discount;
 
-  const finalTotal = cartTotal - discount;
-
-  // --- 1. Fetch Available Coupons on Load ---
+  // 1. Fetch Available Coupons on Load
   useEffect(() => {
     async function fetchCoupons() {
       try {
@@ -57,7 +51,7 @@ export default function Checkout() {
     fetchCoupons();
   }, []);
 
-  // --- 2. Apply Coupon Logic ---
+  // 2. Apply Coupon Logic
   const handleApplyCoupon = async (codeToApply?: string) => {
     setCouponError('');
     setAppliedCoupon(null);
@@ -94,21 +88,22 @@ export default function Checkout() {
       setDiscount(discountAmount);
       setAppliedCoupon(couponData);
       setCouponCode(couponData.code);
+      showToast("Coupon applied successfully!", "success");
     } catch (err) {
       console.error("Error applying coupon:", err);
       setCouponError('Failed to apply coupon.');
     }
   };
 
-  // --- 3. Place Order Logic ---
+  // 3. Place Order Logic
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
-      alert("Please login first.");
+      showToast("Please login first.", "error");
       return;
     }
     if (!cart || cart.length === 0) {
-      alert("Your cart is empty.");
+      showToast("Your cart is empty.", "error");
       return;
     }
 
@@ -120,8 +115,10 @@ export default function Checkout() {
         address: address,
         phone: phone,
         items: cart,
-        total: finalTotal,
+        subtotal: cartTotal,
+        shippingCost: shippingCost,
         discountApplied: discount,
+        total: finalTotal,
         couponUsed: appliedCoupon ? appliedCoupon.code : null,
         status: 'Pending',
         createdAt: new Date().toISOString()
@@ -132,11 +129,12 @@ export default function Checkout() {
       if (clearCart) clearCart();
       
       setOrderSuccess(true);
+      showToast("Order placed successfully!", "success");
       setTimeout(() => navigate('/order-success'), 1500);
 
     } catch (err) {
       console.error("Error placing order:", err);
-      alert("Failed to place order. Please try again.");
+      showToast("Failed to place order. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -179,6 +177,19 @@ export default function Checkout() {
             <span>Subtotal</span>
             <span>₹{cartTotal.toFixed(2)}</span>
           </div>
+
+          {/* ✅ NEW: Shipping Fee display */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
+            <span>Shipping</span>
+            <span style={{ color: shippingCost === 0 ? '#10b981' : '#4b5563', fontWeight: shippingCost === 0 ? 'bold' : 'normal' }}>
+              {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
+            </span>
+          </div>
+          {shippingCost > 0 && (
+            <p style={{ fontSize: '12px', color: '#6b7280', margin: '-4px 0 8px 0' }}>
+              Add ₹{(FREE_SHIPPING_THRESHOLD - cartTotal).toFixed(2)} more for FREE shipping!
+            </p>
+          )}
 
           {discount > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10b981', fontWeight: 'bold' }}>
