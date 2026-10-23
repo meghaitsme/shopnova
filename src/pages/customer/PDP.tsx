@@ -15,10 +15,10 @@ export default function PDP() {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   
-  // 🚨 Changed: Track the specific wishlist document ID for Firebase
+  // Track the specific wishlist document ID for Firebase
   const [wishlistDocId, setWishlistDocId] = useState<string | null>(null);
 
-  // 🚨 Review States
+  // Review States
   const [reviews, setReviews] = useState<any[]>([]);
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
@@ -59,7 +59,7 @@ export default function PDP() {
           );
           const wishSnap = await getDocs(wishQuery);
           if (!wishSnap.empty) {
-            setWishlistDocId(wishSnap.docs[0].id); // Save the document ID so we can delete it later
+            setWishlistDocId(wishSnap.docs[0].id); 
           }
         }
 
@@ -84,7 +84,7 @@ export default function PDP() {
     }
   };
 
-  // 🚨 Updated: Toggle Wishlist using Firebase
+  // Toggle Wishlist using Firebase
   const toggleWishlist = async () => {
     if (!product) return;
     
@@ -95,11 +95,9 @@ export default function PDP() {
 
     try {
       if (wishlistDocId) {
-        // Remove from wishlist
         await deleteDoc(doc(db, 'wishlist', wishlistDocId));
         setWishlistDocId(null);
       } else {
-        // Add to wishlist
         const docRef = await addDoc(collection(db, 'wishlist'), {
           userEmail: user.email,
           productId: product._id,
@@ -116,7 +114,7 @@ export default function PDP() {
     }
   };
 
-  // 🚨 Submit Review Function
+  // Submit Review Function
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) {
@@ -174,6 +172,7 @@ export default function PDP() {
         {/* PRODUCT DETAILS SECTION */}
         <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap', marginBottom: '30px' }}>
           
+          {/* Left Column: Image and Buttons */}
           <div style={{ flex: '1', minWidth: '300px', backgroundColor: 'white', padding: '20px', borderRadius: '8px', textAlign: 'center', position: 'relative' }}>
             <button 
               onClick={toggleWishlist} 
@@ -183,16 +182,48 @@ export default function PDP() {
                 width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px' 
               }}
             >
-              {/* 🚨 Show filled heart if in wishlist, empty if not */}
               {wishlistDocId ? '❤️' : '🤍'}
             </button>
             <img src={product.image || "https://placehold.co/400x400"} alt={product.name} style={{ width: '100%', maxHeight: '400px', objectFit: 'contain' }} />
+            
+            {/* ✅ Disable buttons if out of stock */}
             <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
-              <button onClick={handleAddToCart} style={{ flex: '1', backgroundColor: '#ff9f00', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>🛒 Add to Cart</button>
-              <button onClick={handleBuyNow} style={{ flex: '1', backgroundColor: '#fb641b', color: 'white', padding: '15px', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>⚡ Buy Now</button>
+              <button 
+                onClick={handleAddToCart} 
+                disabled={product.stock <= 0}
+                style={{ 
+                  flex: '1', 
+                  backgroundColor: product.stock <= 0 ? '#d1d5db' : '#ff9f00', 
+                  color: 'white', 
+                  padding: '15px', 
+                  border: 'none', 
+                  borderRadius: '4px', 
+                  fontWeight: 'bold', 
+                  cursor: product.stock <= 0 ? 'not-allowed' : 'pointer' 
+                }}
+              >
+                {product.stock <= 0 ? 'Out of Stock' : '🛒 Add to Cart'}
+              </button>
+              <button 
+                onClick={handleBuyNow} 
+                disabled={product.stock <= 0}
+                style={{ 
+                  flex: '1', 
+                  backgroundColor: product.stock <= 0 ? '#d1d5db' : '#fb641b', 
+                  color: 'white', 
+                  padding: '15px', 
+                  border: 'none', 
+                  borderRadius: '4px', 
+                  fontWeight: 'bold', 
+                  cursor: product.stock <= 0 ? 'not-allowed' : 'pointer' 
+                }}
+              >
+                {product.stock <= 0 ? 'Unavailable' : '⚡ Buy Now'}
+              </button>
             </div>
           </div>
 
+          {/* Right Column: Product Info */}
           <div style={{ flex: '1.5', minWidth: '300px', backgroundColor: 'white', padding: '30px', borderRadius: '8px' }}>
             <h1 style={{ margin: '0 0 10px 0', fontSize: '28px' }}>{product.name}</h1>
             <p style={{ color: '#388e3c', fontSize: '14px', fontWeight: 'bold', margin: '0 0 20px 0' }}>Special Price</p>
@@ -203,12 +234,22 @@ export default function PDP() {
             <p style={{ color: '#555', lineHeight: '1.6' }}>{product.description || "No description available."}</p>
             <ul style={{ color: '#555', marginTop: '15px', paddingLeft: '20px' }}>
               <li><strong>Category:</strong> {product.category}</li>
-              <li><strong>Availability:</strong> {product.stock > 0 ? 'In Stock' : 'Out of Stock'}</li>
+              
+              {/* ✅ Stock availability text */}
+              <li>
+                <strong>Availability:</strong>{' '}
+                <span style={{ 
+                  color: product.stock > 0 ? '#388e3c' : '#ef4444', 
+                  fontWeight: 'bold' 
+                }}>
+                  {product.stock > 0 ? `In Stock (${product.stock} left)` : 'Out of Stock'}
+                </span>
+              </li>
             </ul>
           </div>
         </div>
 
-        {/* 🚨 REVIEWS SECTION */}
+        {/* REVIEWS SECTION */}
         <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px' }}>
           <h2 style={{ borderBottom: '1px solid #eee', paddingBottom: '15px' }}>Ratings & Reviews</h2>
           
