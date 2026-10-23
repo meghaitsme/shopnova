@@ -1,9 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-// ✅ Fixed paths to go up two folders (src/pages -> src)
-import { db } from '../../data/firebase'; // 👈 If this errors, change to '../../data/firebase'
+import { db } from '../../data/firebase'; 
 import { collection, addDoc } from 'firebase/firestore';
-import { useToast } from '../../context/ToastContext'; // 👈 If this errors, change to '../../context/ToastContext'
+import { useToast } from '../../context/ToastContext';
 
 export default function AddProduct() {
   const navigate = useNavigate();
@@ -11,6 +10,7 @@ export default function AddProduct() {
 
   const [name, setName] = useState('');
   const [price, setPrice] = useState('');
+  const [originalPrice, setOriginalPrice] = useState(''); // ✅ NEW
   const [category, setCategory] = useState('Electronics');
   const [stock, setStock] = useState('');
   const [description, setDescription] = useState('');
@@ -27,20 +27,19 @@ export default function AddProduct() {
 
     setSaving(true);
     try {
-      // Save to Firebase 'products' collection
       await addDoc(collection(db, 'products'), {
         name: name,
         price: Number(price),
+        originalPrice: originalPrice ? Number(originalPrice) : null, // ✅ NEW
         category: category,
         stock: Number(stock),
         description: description,
-        // We save the comma-separated string. The PDP will split it.
         image: imageUrls, 
         createdAt: new Date().toISOString()
       });
 
       showToast("Product added successfully!", "success");
-      navigate('/admin/products'); // Redirect back to the product list
+      navigate('/admin/products');
     } catch (err: any) {
       console.error("Error adding product:", err);
       showToast("Failed to add product.", "error");
@@ -60,41 +59,27 @@ export default function AddProduct() {
         
         <div>
           <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Product Name *</label>
-          <input 
-            required type="text" 
-            value={name} onChange={(e) => setName(e.target.value)} 
-            placeholder="e.g. Wireless Mouse"
-            style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
-          />
+          <input required type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Wireless Mouse" style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Price (₹) *</label>
-            <input 
-              required type="number" step="0.01" min="0"
-              value={price} onChange={(e) => setPrice(e.target.value)} 
-              placeholder="e.g. 599"
-              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
-            />
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Selling Price (₹) *</label>
+            <input required type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="e.g. 599" style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} />
+          </div>
+          <div>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Original Price (MRP)</label>
+            <input type="number" step="0.01" min="0" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} placeholder="e.g. 999" style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} />
           </div>
           <div>
             <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Stock Quantity *</label>
-            <input 
-              required type="number" min="0"
-              value={stock} onChange={(e) => setStock(e.target.value)} 
-              placeholder="e.g. 50"
-              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
-            />
+            <input required type="number" min="0" value={stock} onChange={(e) => setStock(e.target.value)} placeholder="e.g. 50" style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} />
           </div>
         </div>
 
         <div>
           <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Category</label>
-          <select 
-            value={category} onChange={(e) => setCategory(e.target.value)}
-            style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: 'white' }}
-          >
+          <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: 'white' }}>
             <option value="Electronics">Electronics</option>
             <option value="Clothing">Clothing</option>
             <option value="Books">Books</option>
@@ -106,40 +91,19 @@ export default function AddProduct() {
 
         <div>
           <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Image URLs (Comma Separated)</label>
-          <textarea 
-            value={imageUrls} onChange={(e) => setImageUrls(e.target.value)} 
-            rows={3}
-            placeholder="https://image1.jpg, https://image2.jpg, https://image3.jpg"
-            style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', resize: 'vertical' }} 
-          />
-          <p style={{ margin: '6px 0 0 0', fontSize: '12px', color: '#6b7280' }}>
-            Paste direct image links separated by commas. The first one will be the main image.
-          </p>
+          <textarea value={imageUrls} onChange={(e) => setImageUrls(e.target.value)} rows={3} placeholder="https://image1.jpg, https://image2.jpg" style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', resize: 'vertical' }} />
         </div>
 
         <div>
           <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Description</label>
-          <textarea 
-            value={description} onChange={(e) => setDescription(e.target.value)} 
-            rows={5}
-            placeholder="Describe your product..."
-            style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', resize: 'vertical' }} 
-          />
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} placeholder="Describe your product..." style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', resize: 'vertical' }} />
         </div>
 
         <div style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
-          <button 
-            type="submit" 
-            disabled={saving}
-            style={{ flex: '1', padding: '14px', backgroundColor: saving ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: saving ? 'not-allowed' : 'pointer' }}
-          >
+          <button type="submit" disabled={saving} style={{ flex: '1', padding: '14px', backgroundColor: saving ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: saving ? 'not-allowed' : 'pointer' }}>
             {saving ? 'Saving...' : 'Save Product'}
           </button>
-          <button 
-            type="button" 
-            onClick={() => navigate('/admin/products')}
-            style={{ flex: '1', padding: '14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
-          >
+          <button type="button" onClick={() => navigate('/admin/products')} style={{ flex: '1', padding: '14px', backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}>
             Cancel
           </button>
         </div>
