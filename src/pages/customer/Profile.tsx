@@ -1,7 +1,8 @@
 ﻿import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { updateProfile } from 'firebase/auth';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
@@ -15,12 +16,18 @@ export default function Profile() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
+  // ✅ NEW: Profile Update State
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [phone, setPhone] = useState('');
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     if (!user?.email) {
       setLoading(false);
       return;
     }
 
+    // Fetch Orders
     const q = query(
       collection(db, 'orders'),
       where('customerEmail', '==', user.email),
@@ -49,6 +56,33 @@ export default function Profile() {
     }
   };
 
+  // ✅ NEW: Handle Profile Save
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setIsUpdating(true);
+    try {
+      // 1. Update Firebase Auth Display Name
+      await updateProfile(user, { displayName });
+
+      // 2. Save extra details (like phone) to the users collection
+      const userRef = doc(db, 'users', user.uid);
+      await setDoc(userRef, { 
+        email: user.email,
+        displayName: displayName,
+        phone: phone 
+      }, { merge: true });
+
+      showToast("Profile updated successfully!", "success");
+    } catch (err: any) {
+      console.error("Error updating profile:", err);
+      showToast("Failed to update profile.", "error");
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleCancelOrder = async (orderId: string) => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
 
@@ -65,10 +99,6 @@ export default function Profile() {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
-
   if (!user) {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Please log in to view your profile.</div>;
   }
@@ -76,184 +106,153 @@ export default function Profile() {
   return (
     <div style={{ padding: '40px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
       
-      {/* CSS to hide everything except the receipt when printing */}
-      <style>
-        {`
-          @media print {
-            body * { visibility: hidden; }
-            .printable-receipt, .printable-receipt * { visibility: visible; }
-            .printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
-            .no-print { display: none !important; }
-          }
-        `}
-      </style>
-
-      <div className="no-print">
-        {/* Profile Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '40px', borderBottom: '1px solid #e5e7eb', paddingBottom: '24px' }}>
-          <div>
-            <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 8px 0' }}>My Profile</h1>
-            <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Logged in as: <strong>{user.email}</strong></p>
-          </div>
-          <button 
-            onClick={handleLogout}
-            style={{ padding: '10px 20px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            Log Out
-          </button>
+      {/* Profile Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '32px', fontWeight: 'bold', margin: '0 0 8px 0' }}>My Account</h1>
+          <p style={{ margin: 0, color: '#6b7280', fontSize: '16px' }}>Logged in as: <strong>{user.email}</strong></p>
         </div>
-
-        <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>Order History</h2>
-
-        {loading ? (
-          <p>Loading your orders...</p>
-        ) : orders.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-            <p style={{ color: '#6b7280', marginBottom: '16px' }}>You haven't placed any orders yet.</p>
-            <Link to="/products" style={{ padding: '10px 20px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
-              Start Shopping
-            </Link>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {orders.map((order) => (
-              <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white' }}>
-                
-                {/* Order Header Row */}
-                <div style={{ padding: '16px 24px', backgroundColor: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb', flexWrap: 'wrap', gap: '16px' }}>
-                  <div>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order Placed</p>
-                    <p style={{ margin: 0, fontWeight: 'bold' }}>
-                      {new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                    </p>
-                  </div>
-                  <div>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total</p>
-                    <p style={{ margin: 0, fontWeight: 'bold' }}>₹{Number(order.total).toFixed(2)}</p>
-                  </div>
-                  <div>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order ID</p>
-                    <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '14px' }}>{order.id}</p>
-                  </div>
-                  <div>
-                    <span style={{ 
-                      padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
-                      backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Cancelled' ? '#fee2e2' : order.status === 'Shipped' ? '#dbeafe' : '#fef9c3',
-                      color: order.status === 'Delivered' ? '#166534' : order.status === 'Cancelled' ? '#991b1b' : order.status === 'Shipped' ? '#1e40af' : '#854d0e'
-                    }}>
-                      {order.status || 'Pending'}
-                    </span>
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    {order.status === 'Pending' && (
-                      <button 
-                        onClick={() => handleCancelOrder(order.id)}
-                        disabled={cancellingId === order.id}
-                        style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
-                      >
-                        {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
-                      </button>
-                    )}
-                    <button 
-                      onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
-                      style={{ background: 'none', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      {expandedOrder === order.id ? 'Hide Details' : 'View Details'}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Expandable Order Details */}
-                {expandedOrder === order.id && (
-                  <div style={{ padding: '24px' }}>
-                    <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#374151' }}>Items in this order:</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      {order.items?.map((item: any, idx: number) => (
-                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '12px' }}>
-                          {item.imageUrl || item.image ? (
-                            <img src={item.imageUrl || item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
-                          ) : (
-                            <div style={{ width: '50px', height: '50px', backgroundColor: '#f3f4f6', borderRadius: '4px' }} />
-                          )}
-                          <div style={{ flex: 1 }}>
-                            <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{item.name}</p>
-                            <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Qty: {item.quantity} × ₹{item.price}</p>
-                          </div>
-                          <p style={{ margin: 0, fontWeight: 'bold' }}>₹{(item.price * item.quantity).toFixed(2)}</p>
-                        </div>
-                      ))}
-                    </div>
-                    
-                    <div style={{ marginTop: '16px', backgroundColor: '#f9fafb', padding: '16px', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-                      <div>
-                        <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Shipping Address:</strong> {order.address}</p>
-                        <p style={{ margin: 0, fontSize: '14px' }}><strong>Phone:</strong> {order.phone}</p>
-                        {order.couponUsed && (
-                          <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#10b981' }}>
-                            <strong>Coupon Applied:</strong> {order.couponUsed} (-₹{order.discountApplied})
-                          </p>
-                        )}
-                      </div>
-                      
-                      {/* Print Button */}
-                      <button 
-                        onClick={handlePrint}
-                        style={{ padding: '10px 16px', backgroundColor: '#374151', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-                      >
-                        🖨️ Print Receipt
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
+        <button 
+          onClick={handleLogout}
+          style={{ padding: '10px 20px', backgroundColor: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          Log Out
+        </button>
       </div>
 
-      {/* ✅ HIDDEN RECEIPT VIEW FOR PRINTING */}
-      {expandedOrder && (
-        <div className="printable-receipt" style={{ display: 'none' }}>
-          {orders.filter(o => o.id === expandedOrder).map(order => (
-            <div key={order.id}>
-              <h1 style={{ borderBottom: '2px solid black', paddingBottom: '10px' }}>ShopNova Receipt</h1>
-              <p><strong>Order ID:</strong> {order.id}</p>
-              <p><strong>Date:</strong> {new Date(order.createdAt).toLocaleString()}</p>
-              <p><strong>Customer:</strong> {order.customerName} ({order.customerEmail})</p>
-              <p><strong>Shipping To:</strong> {order.address}</p>
-              <p><strong>Phone:</strong> {order.phone}</p>
+      {/* ✅ NEW: Profile Settings Form */}
+      <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '40px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Profile Settings</h2>
+        <form onSubmit={handleUpdateProfile} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 250px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Display Name</label>
+            <input 
+              type="text" 
+              value={displayName} 
+              onChange={(e) => setDisplayName(e.target.value)} 
+              placeholder="Your Name"
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
+            />
+          </div>
+          <div style={{ flex: '1 1 250px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Phone Number (for shipping)</label>
+            <input 
+              type="tel" 
+              value={phone} 
+              onChange={(e) => setPhone(e.target.value)} 
+              placeholder="+91 98765 43210"
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
+            />
+          </div>
+          <button 
+            type="submit" 
+            disabled={isUpdating}
+            style={{ padding: '10px 24px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: isUpdating ? 'not-allowed' : 'pointer', height: '42px' }}
+          >
+            {isUpdating ? 'Saving...' : 'Save Changes'}
+          </button>
+        </form>
+      </div>
+
+      {/* Order History */}
+      <h2 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>Order History</h2>
+
+      {loading ? (
+        <p>Loading your orders...</p>
+      ) : orders.length === 0 ? (
+        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <p style={{ color: '#6b7280', marginBottom: '16px' }}>You haven't placed any orders yet.</p>
+          <Link to="/products" style={{ padding: '10px 20px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}>
+            Start Shopping
+          </Link>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {orders.map((order) => (
+            <div key={order.id} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white' }}>
               
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid black' }}>
-                    <th style={{ padding: '8px 0' }}>Item</th>
-                    <th>Qty</th>
-                    <th style={{ textAlign: 'right' }}>Price</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {order.items?.map((item: any, idx: number) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #ccc' }}>
-                      <td style={{ padding: '8px 0' }}>{item.name}</td>
-                      <td>{item.quantity}</td>
-                      <td style={{ textAlign: 'right' }}>₹{(item.price * item.quantity).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              
-              <div style={{ marginTop: '20px', textAlign: 'right', borderTop: '2px solid black', paddingTop: '10px' }}>
-                {order.discountApplied > 0 && <p>Discount: -₹{order.discountApplied.toFixed(2)}</p>}
-                <h2>Total: ₹{Number(order.total).toFixed(2)}</h2>
+              {/* Order Header Row */}
+              <div style={{ padding: '16px 24px', backgroundColor: '#f9fafb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e5e7eb', flexWrap: 'wrap', gap: '16px' }}>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order Placed</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>
+                    {new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>₹{Number(order.total).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order ID</p>
+                  <p style={{ margin: 0, fontFamily: 'monospace', fontSize: '14px' }}>{order.id}</p>
+                </div>
+                <div>
+                  <span style={{ 
+                    padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+                    backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Cancelled' ? '#fee2e2' : order.status === 'Shipped' ? '#dbeafe' : '#fef9c3',
+                    color: order.status === 'Delivered' ? '#166534' : order.status === 'Cancelled' ? '#991b1b' : order.status === 'Shipped' ? '#1e40af' : '#854d0e'
+                  }}>
+                    {order.status || 'Pending'}
+                  </span>
+                </div>
+                
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {order.status === 'Pending' && (
+                    <button 
+                      onClick={() => handleCancelOrder(order.id)}
+                      disabled={cancellingId === order.id}
+                      style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                    >
+                      {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
+                    </button>
+                  )}
+                  
+                  <button 
+                    onClick={() => setExpandedOrder(expandedOrder === order.id ? null : order.id)}
+                    style={{ background: 'none', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    {expandedOrder === order.id ? 'Hide Details' : 'View Details'}
+                  </button>
+                </div>
               </div>
-              
-              <p style={{ marginTop: '40px', textAlign: 'center', fontSize: '12px' }}>Thank you for shopping with ShopNova!</p>
+
+              {/* Expandable Order Details */}
+              {expandedOrder === order.id && (
+                <div style={{ padding: '24px' }}>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#374151' }}>Items in this order:</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {order.items?.map((item: any, idx: number) => (
+                      <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid #f3f4f6', paddingBottom: '12px' }}>
+                        {item.imageUrl || item.image ? (
+                          <img src={item.imageUrl || item.image} alt={item.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px' }} />
+                        ) : (
+                          <div style={{ width: '50px', height: '50px', backgroundColor: '#f3f4f6', borderRadius: '4px' }} />
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{item.name}</p>
+                          <p style={{ margin: 0, fontSize: '14px', color: '#6b7280' }}>Qty: {item.quantity} × ₹{item.price}</p>
+                        </div>
+                        <p style={{ margin: 0, fontWeight: 'bold' }}>₹{(item.price * item.quantity).toFixed(2)}</p>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div style={{ marginTop: '16px', backgroundColor: '#f9fafb', padding: '16px', borderRadius: '6px' }}>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Shipping Address:</strong> {order.address}</p>
+                    <p style={{ margin: 0, fontSize: '14px' }}><strong>Phone:</strong> {order.phone}</p>
+                    {order.couponUsed && (
+                      <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#10b981' }}>
+                        <strong>Coupon Applied:</strong> {order.couponUsed} (-₹{order.discountApplied})
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
       )}
-
     </div>
   );
 }
