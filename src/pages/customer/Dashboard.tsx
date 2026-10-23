@@ -65,7 +65,7 @@ export default function Dashboard() {
         <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', borderLeft: '6px solid #10b981', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
           <p style={{ margin: 0, fontSize: '14px', color: '#6b7280', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Total Revenue</p>
           <p style={{ margin: '12px 0 0 0', fontSize: '36px', fontWeight: 'bold', color: '#111827' }}>
-            ${totalRevenue.toFixed(2)}
+            ₹{totalRevenue.toFixed(2)}
           </p>
         </div>
 
