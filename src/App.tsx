@@ -21,7 +21,7 @@ import AddProduct from './pages/AddProduct';
 import Dashboard from './pages/admin/Dashboard';
 import AdminProducts from './pages/admin/AdminProducts';
 import AdminCoupons from './pages/admin/AdminCoupons';
-import Orders from './pages/admin/Orders';
+import Orders from './pages/admin/AdminOrders';
 import EditProduct from './pages/admin/EditProduct'; // ✅ 1. Import added here
 import AdminUsers from './pages/admin/AdminUsers';
 import ScrollToTop from './components/common/ScrollToTop';

@@ -28,7 +28,7 @@ export default function Sidebar() {
             {/* 🚨 Dashboard Link belongs here */}
             <Link to="/admin/dashboard" style={{ color: 'white', textDecoration: 'none', padding: '10px', borderRadius: '5px' }}>Dashboard</Link>
             <Link to="/admin/products" style={{ color: 'white', textDecoration: 'none', padding: '10px', borderRadius: '5px' }}>Products</Link>
-            <Link to="/admin/orders" style={{ color: 'white', textDecoration: 'none', padding: '10px', borderRadius: '5px' }}>Orders</Link>
+            <Link to="/admin/AdminOrders" style={{ color: 'white', textDecoration: 'none', padding: '10px', borderRadius: '5px' }}>Orders</Link>
             <Link to="/admin/messages" style={{ color: 'white', textDecoration: 'none', padding: '10px', borderRadius: '5px' }}>Messages</Link>
           </>
         )}

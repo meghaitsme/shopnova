@@ -111,7 +111,7 @@ export default function Dashboard() {
   const activities = [
     ...recentOrders.map(o => ({
       id: o.id, type: 'order', title: `New order from ${o.customerName}`,
-      subtitle: `₹${Number(o.total).toFixed(2)}`, time: o.createdAt, link: '/admin/orders'
+      subtitle: `₹${Number(o.total).toFixed(2)}`, time: o.createdAt, link: '/admin/AdminOrders'
     })),
     ...users.slice(0, 3).map(u => ({
       id: u.id, type: 'user', title: `New customer registered`,

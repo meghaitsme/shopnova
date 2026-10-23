@@ -79,7 +79,7 @@ export default function Dashboard() {
       title: `New order from ${o.customerName}`,
       subtitle: `₹${Number(o.total).toFixed(2)}`,
       time: o.createdAt,
-      link: '/admin/orders'
+      link: '/admin/AdminOrders'
     })),
     ...users.slice(0, 3).map(u => ({
       id: u.id,
@@ -152,7 +152,7 @@ export default function Dashboard() {
         <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
           <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>Recent Orders</h2>
-            <Link to="/admin/orders" style={{ color: '#2563eb', fontSize: '14px', textDecoration: 'none', fontWeight: 'bold' }}>View All</Link>
+            <Link to="/admin/AdminOrders" style={{ color: '#2563eb', fontSize: '14px', textDecoration: 'none', fontWeight: 'bold' }}>View All</Link>
           </div>
           <div style={{ padding: '20px' }}>
             {recentOrders.length === 0 ? (

@@ -47,7 +47,7 @@ export default function Navbar() {
               <Link to="/admin/dashboard" style={linkStyle}>Dashboard</Link>
               <Link to="/admin/messages" style={linkStyle}>Messages</Link>
               <Link to="/admin/products" style={linkStyle}>Manage Products</Link>
-              <Link to="/admin/orders" style={linkStyle}>Orders</Link>
+              <Link to="/admin/AdminOrders" style={linkStyle}>Orders</Link>
               <Link to="/admin/coupons" style={linkStyle}>Coupons</Link>
               <Link to="/admin/users" style={linkStyle}>Users</Link>
               <Link to="/admin/reviews" style={linkStyle}>Reviews</Link>
@@ -87,7 +87,7 @@ export default function Navbar() {
             <>
               <Link to="/admin/dashboard" onClick={closeMenu} style={mobileLinkStyle}>Dashboard</Link>
               <Link to="/admin/products" onClick={closeMenu} style={mobileLinkStyle}>Manage Products</Link>
-              <Link to="/admin/orders" onClick={closeMenu} style={mobileLinkStyle}>Orders</Link>
+              <Link to="/admin/AdminOrders" onClick={closeMenu} style={mobileLinkStyle}>Orders</Link>
               <Link to="/admin/coupons" onClick={closeMenu} style={mobileLinkStyle}>Coupons</Link>
               <Link to="/admin/users" onClick={closeMenu} style={mobileLinkStyle}>Users</Link>
               

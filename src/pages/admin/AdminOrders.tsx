@@ -25,6 +25,7 @@ export interface Order {
   couponUsed?: string;  
   subtotal?: number;    
   shippingCost?: number; 
+  discountApplied?: number; // ✅ ADD THIS LINE
   total: number;
   status: OrderStatus;
   createdAt: any;
@@ -223,6 +224,18 @@ export default function Orders() {
 
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+
+            {/* CSS for printing the Admin Receipt */}
+      <style>
+        {`
+          @media print {
+            body * { visibility: hidden; }
+            .printable-admin-receipt, .printable-admin-receipt * { visibility: visible; }
+            .printable-admin-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; }
+            .no-print { display: none !important; }
+          }
+        `}
+      </style>
       
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
@@ -350,73 +363,41 @@ export default function Orders() {
         </table>
       </div>
 
-      {/* --- ORDER DETAILS MODAL --- */}
+        {/* ✅ HIDDEN ADMIN RECEIPT FOR PRINTING */}
       {selectedOrder && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', width: '100%', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto', padding: '24px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+        <div className="printable-admin-receipt" style={{ display: 'none' }}>
+          <div style={{ fontFamily: 'sans-serif', color: '#000' }}>
+            <h1 style={{ borderBottom: '2px solid black', paddingBottom: '10px' }}>ShopNova - Order Invoice</h1>
+            <p><strong>Order ID:</strong> {selectedOrder.id}</p>
+            <p><strong>Date:</strong> {new Date(selectedOrder.createdAt).toLocaleString()}</p>
+            <p><strong>Customer:</strong> {selectedOrder.customerName}</p>
+            <p><strong>Email:</strong> {selectedOrder.customerEmail}</p>
+            <p><strong>Phone:</strong> {selectedOrder.phone}</p>
+            <p><strong>Shipping To:</strong> {selectedOrder.address}</p>
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>Order Details</h2>
-                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: '#6b7280', fontFamily: 'monospace' }}>ID: {selectedOrder.id}</p>
-              </div>
-              <button onClick={() => setSelectedOrder(null)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#9ca3af' }}>&times;</button>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
-              <div>
-                <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#6b7280', marginBottom: '4px' }}>Customer</h3>
-                <p style={{ margin: 0, fontWeight: 'bold' }}>{selectedOrder.customerName}</p>
-                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#4b5563' }}>{selectedOrder.customerEmail}</p>
-              </div>
-              <div>
-                <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#6b7280', marginBottom: '4px' }}>Shipping Address</h3>
-                <p style={{ margin: 0, fontSize: '14px' }}>{selectedOrder.address || 'No address provided'}</p>
-              </div>
-            </div>
-
-            <h3 style={{ fontSize: '12px', textTransform: 'uppercase', color: '#6b7280', marginBottom: '8px' }}>Order Items</h3>
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', overflow: 'hidden', marginBottom: '24px' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                <thead style={{ backgroundColor: '#f9fafb' }}>
-                  <tr>
-                    <th style={{ textAlign: 'left', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>Item</th>
-                    <th style={{ textAlign: 'center', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>Qty</th>
-                    <th style={{ textAlign: 'right', padding: '8px 12px', borderBottom: '1px solid #e5e7eb' }}>Price</th>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '20px', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid black' }}>
+                  <th style={{ padding: '8px 0' }}>Item</th>
+                  <th style={{ textAlign: 'center' }}>Qty</th>
+                  <th style={{ textAlign: 'right' }}>Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selectedOrder.items?.map((item: any, idx: number) => (
+                  <tr key={idx} style={{ borderBottom: '1px solid #ccc' }}>
+                    <td style={{ padding: '8px 0' }}>{item.name}</td>
+                    <td style={{ textAlign: 'center' }}>{item.quantity}</td>
+                    <td style={{ textAlign: 'right' }}>₹{(item.price * item.quantity).toFixed(2)}</td>
                   </tr>
-                </thead>
-                <tbody>
-                  {selectedOrder.items?.map((item, idx) => (
-                    <tr key={idx}>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6' }}>{item.name}</td>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', textAlign: 'center' }}>{item.quantity}</td>
-                      <td style={{ padding: '8px 12px', borderBottom: '1px solid #f3f4f6', textAlign: 'right' }}>₹{(item.price * item.quantity).toFixed(2)}</td>
-                    </tr>
-                  ))}
-                  {(!selectedOrder.items || selectedOrder.items.length === 0) && (
-                    <tr><td colSpan={3} style={{ padding: '12px', textAlign: 'center', color: '#6b7280' }}>No items found.</td></tr>
-                  )}
-                </tbody>
-              </table>
+                ))}
+              </tbody>
+            </table>
+            
+            <div style={{ marginTop: '20px', textAlign: 'right', borderTop: '2px solid black', paddingTop: '10px' }}>
+              {selectedOrder.discountApplied > 0 && <p>Discount: -₹{selectedOrder.discountApplied.toFixed(2)}</p>}
+              <h2>Total: ₹{selectedOrder.total.toFixed(2)}</h2>
             </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '2px solid #e5e7eb', paddingTop: '16px' }}>
-              <div style={{ textAlign: 'right', width: '200px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '14px' }}>
-                  <span>Subtotal:</span>
-                  <span>₹{Number(selectedOrder.subtotal || selectedOrder.total).toFixed(2)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px' }}>
-                  <span>Shipping:</span>
-                  <span>{selectedOrder.shippingCost === 0 ? 'FREE' : `₹${Number(selectedOrder.shippingCost || 0).toFixed(2)}`}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px', borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
-                  <span>Total:</span>
-                  <span>₹{selectedOrder.total.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
       )}
