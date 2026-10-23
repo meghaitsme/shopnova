@@ -7,6 +7,7 @@ import { useToast } from '../../context/ToastContext';
 
 export default function Home() {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([]);
+  const [bestsellers, setBestsellers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Newsletter State
@@ -15,18 +16,46 @@ export default function Home() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    const q = query(collection(db, 'products'), limit(4));
-    
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    // 1. Fetch Latest Products (Featured)
+    const qFeatured = query(collection(db, 'products'), limit(4));
+    const unsubFeatured = onSnapshot(qFeatured, (snapshot) => {
       const fetched: any[] = [];
       snapshot.forEach((doc) => {
         fetched.push({ id: doc.id, ...doc.data() });
       });
       setFeaturedProducts(fetched);
+    });
+
+    // 2. Fetch Orders & Calculate Bestsellers
+    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+      const productSales: Record<string, { count: number, productData: any }> = {};
+      
+      snapshot.forEach((doc) => {
+        const order = doc.data();
+        if (order.status !== 'Cancelled' && order.items) {
+          order.items.forEach((item: any) => {
+            if (!productSales[item.productId || item._id]) {
+              productSales[item.productId || item._id] = { count: 0, productData: item };
+            }
+            productSales[item.productId || item._id].count += item.quantity;
+          });
+        }
+      });
+
+      // Sort by highest count and take top 4
+      const topSelling = Object.values(productSales)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4)
+        .map((item) => ({ ...item.productData, salesCount: item.count })); // Ensure we get the full product object
+
+      setBestsellers(topSelling);
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubFeatured();
+      unsubOrders();
+    };
   }, []);
 
   const handleSubscribe = async (e: React.FormEvent) => {
@@ -109,6 +138,55 @@ export default function Home() {
         </div>
       </div>
 
+      {/* ✅ NEW: BESTSELLERS SECTION */}
+      {bestsellers.length > 0 && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 40px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div>
+              <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0' }}>🔥 Trending Now</h2>
+              <p style={{ margin: 0, color: '#6b7280' }}>The most popular items bought by our customers.</p>
+            </div>
+            <Link to="/products" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 'bold' }}>
+              View All &rarr;
+            </Link>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
+            {bestsellers.map((product: any) => (
+              <Link key={product.id || product._id} to={`/product/${product.id || product._id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+                <div style={{ 
+                  backgroundColor: 'white', 
+                  borderRadius: '8px', 
+                  overflow: 'hidden', 
+                  border: '1px solid #e5e7eb',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative'
+                }}>
+                  {/* Sales Badge */}
+                  <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', zIndex: 1 }}>
+                    {product.salesCount} Sold
+                  </div>
+                  
+                  <div style={{ height: '200px', backgroundColor: '#f3f4f6', padding: '16px' }}>
+                    <img 
+                      src={product.image || product.imageUrl || 'https://placehold.co/300x300'} 
+                      alt={product.name} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    />
+                  </div>
+                  <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0 0 8px 0', flex: 1 }}>{product.name}</h3>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', margin: 0, color: '#111827' }}>{formatPrice(product.price)}</p>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* FEATURED PRODUCTS */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 60px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -151,7 +229,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* ✅ NEW: NEWSLETTER SECTION */}
+      {/* NEWSLETTER SECTION */}
       <div style={{ backgroundColor: '#111827', padding: '60px 20px', color: 'white', textAlign: 'center' }}>
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Join our Newsletter</h2>
