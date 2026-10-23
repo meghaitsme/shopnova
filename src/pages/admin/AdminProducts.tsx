@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../data/firebase';
 import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
-import { Link } from 'react-router-dom';
-
+import { Link } from 'react-router-dom'; // ✅ Import Link for the Edit button
 
 export interface Product {
   id: string;
@@ -73,8 +72,7 @@ export default function AdminProducts() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0' }}>Manage Products</h1>
-          <p style={{ margin: 0, color: '#6b7280' }}>You have {products.length} products in your store.</p>
+          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0' }}>Manage Products ({products.length})</h1>
         </div>
         
         <div style={{ display: 'flex', gap: '12px' }}>
@@ -87,9 +85,9 @@ export default function AdminProducts() {
           />
           <Link 
             to="/admin/add-product" 
-            style={{ padding: '10px 20px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
+            style={{ padding: '10px 20px', backgroundColor: '#10b981', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
           >
-            + Add Product
+            + Add New Product
           </Link>
         </div>
       </div>
@@ -99,31 +97,32 @@ export default function AdminProducts() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
             <tr>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Product</th>
+              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Image</th>
+              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Product Name</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Category</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Price</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Stock</th>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151', textAlign: 'right' }}>Actions</th>
+              <th style={{ padding: '16px', fontSize: '14px', color: '#374151', textAlign: 'center' }}>Action</th>
             </tr>
           </thead>
           <tbody>
             {filteredProducts.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
+                <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
                   No products found.
                 </td>
               </tr>
             ) : (
               filteredProducts.map((product) => (
                 <tr key={product.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <td style={{ padding: '16px' }}>
                     {product.imageUrl ? (
                       <img src={product.imageUrl} alt={product.name} style={{ width: '40px', height: '40px', borderRadius: '6px', objectFit: 'cover', backgroundColor: '#f3f4f6' }} />
                     ) : (
                       <div style={{ width: '40px', height: '40px', borderRadius: '6px', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', color: '#9ca3af' }}>No Img</div>
                     )}
-                    <span style={{ fontWeight: 'bold' }}>{product.name}</span>
                   </td>
+                  <td style={{ padding: '16px', fontWeight: 'bold' }}>{product.name}</td>
                   <td style={{ padding: '16px', color: '#6b7280' }}>{product.category}</td>
                   <td style={{ padding: '16px', fontWeight: 'bold' }}>₹{product.price.toFixed(2)}</td>
                   <td style={{ padding: '16px' }}>
@@ -135,19 +134,24 @@ export default function AdminProducts() {
                       {product.stock || 0} in stock
                     </span>
                   </td>
-                  <td style={{ padding: '16px', textAlign: 'right' }}>
-                     <Link 
-      to={`/admin/edit-product/${product.id}`}
-      style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold' }}
-    >
-      Edit
-    </Link>
-                    <button 
-                      onClick={() => handleDelete(product.id, product.name)}
-                      style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                    >
-                      Delete
-                    </button>
+                  <td style={{ padding: '16px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      
+                      {/* ✅ THE NEW EDIT BUTTON */}
+                      <Link 
+                        to={`/admin/edit-product/${product.id}`}
+                        style={{ backgroundColor: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', padding: '6px 16px', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none', fontSize: '14px', fontWeight: 'bold', display: 'inline-block' }}
+                      >
+                        Edit
+                      </Link>
+
+                      <button 
+                        onClick={() => handleDelete(product.id, product.name)}
+                        style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
