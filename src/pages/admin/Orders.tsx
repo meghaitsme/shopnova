@@ -17,6 +17,8 @@ export interface Order {
   customerName: string;
   customerEmail?: string;
   address?: string;
+  phone?: string;       // ✅ Added for CSV export
+  couponUsed?: string;  // ✅ Added for CSV export
   total: number;
   status: OrderStatus;
   createdAt: any;
@@ -27,7 +29,7 @@ export default function Orders() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string>('All'); // New Status Filter State
+  const [statusFilter, setStatusFilter] = useState<string>('All'); 
   const [error, setError] = useState<string | null>(null);
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -51,6 +53,8 @@ export default function Orders() {
           customerName: data.customerName || data.name || 'Unknown',
           customerEmail: data.customerEmail || data.email || 'No email provided',
           address: data.address || 'No address provided',
+          phone: data.phone || '',
+          couponUsed: data.couponUsed || '',
           total: calculatedTotal || 0,
           status: data.status || 'Pending',
           createdAt: data.createdAt,
@@ -88,17 +92,53 @@ export default function Orders() {
     }
   };
 
-  // 3. Filter (Updated to handle both Search AND Status Dropdown)
+  // ✅ 3. Export to CSV Function
+  const handleExportCSV = () => {
+    if (orders.length === 0) {
+      alert("No orders to export.");
+      return;
+    }
+
+    const headers = ['Order ID', 'Date', 'Customer Name', 'Customer Email', 'Address', 'Phone', 'Total (INR)', 'Status', 'Coupon Used'];
+    
+    const csvRows = orders.map(order => {
+      const itemsList = order.items?.map((item: any) => `${item.name} (x${item.quantity})`).join(' | ') || '';
+      const escape = (str: any) => `"${String(str || '').replace(/"/g, '""')}"`;
+
+      return [
+        escape(order.id),
+        escape(new Date(order.createdAt).toLocaleDateString()),
+        escape(order.customerName),
+        escape(order.customerEmail),
+        escape(order.address),
+        escape(order.phone),
+        escape(Number(order.total).toFixed(2)),
+        escape(order.status),
+        escape(order.couponUsed || 'None'),
+        escape(itemsList)
+      ].join(',');
+    });
+
+    const csvContent = [headers.join(','), ...csvRows].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `shopnova_orders_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // 4. Filter
   const filteredOrders = useMemo(() => {
     const q = search.toLowerCase().trim();
     
     return orders.filter(o => {
-      // Check Status Filter
       if (statusFilter !== 'All' && o.status !== statusFilter) {
         return false;
       }
       
-      // Check Search Text
       if (q) {
         const matchesId = o.id.toLowerCase().includes(q);
         const matchesName = o.customerName.toLowerCase().includes(q);
@@ -120,7 +160,8 @@ export default function Orders() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <h1 style={{ fontSize: '24px', fontWeight: 'bold', margin: 0 }}>Live Orders</h1>
         
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          
           <select 
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -140,6 +181,14 @@ export default function Orders() {
             onChange={(e) => setSearch(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid #ccc', borderRadius: '4px' }}
           />
+
+          {/* ✅ NEW: Export CSV Button */}
+          <button 
+            onClick={handleExportCSV}
+            style={{ padding: '8px 16px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            📥 Export CSV
+          </button>
         </div>
       </div>
 
