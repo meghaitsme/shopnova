@@ -34,9 +34,9 @@ export default function Home() {
         const order = doc.data();
         if (order.status !== 'Cancelled' && order.items) {
           order.items.forEach((item: any) => {
-            // Safely get ID and quantity
+            // Safely get ID and quantity to prevent NaN
             const itemId = item.productId || item._id;
-            const qty = Number(item.quantity) || 1; // Default to 1 if missing
+            const qty = Number(item.quantity) || 1; 
 
             if (itemId) {
               if (!productSales[itemId]) {
@@ -52,7 +52,7 @@ export default function Home() {
       const topSelling = Object.values(productSales)
         .sort((a, b) => b.count - a.count)
         .slice(0, 4)
-        .map((item) => ({ ...item.productData, salesCount: item.count })); // Ensure we get the full product object
+        .map((item) => ({ ...item.productData, salesCount: item.count }));
 
       setBestsellers(topSelling);
       setLoading(false);
@@ -144,7 +144,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* ✅ BESTSELLERS SECTION */}
+      {/* BESTSELLERS SECTION */}
       {bestsellers.length > 0 && (
         <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 40px 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -170,7 +170,7 @@ export default function Home() {
                   flexDirection: 'column',
                   position: 'relative'
                 }}>
-                  {/* Sales Badge (Safely handled) */}
+                  {/* Safely display Sales Badge */}
                   {product.salesCount > 0 && (
                     <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', zIndex: 1 }}>
                       {product.salesCount} Sold
@@ -197,7 +197,7 @@ export default function Home() {
         </div>
       )}
 
-      {/* FEATURED PRODUCTS */}
+      {/* FEATURED PRODUCTS SECTION */}
       <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 20px 60px 20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Featured Products</h2>
@@ -208,6 +208,8 @@ export default function Home() {
 
         {loading ? (
           <p>Loading featured products...</p>
+        ) : featuredProducts.length === 0 ? (
+          <p style={{ color: '#6b7280' }}>No products available yet.</p>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '24px' }}>
             {featuredProducts.map((product) => (
