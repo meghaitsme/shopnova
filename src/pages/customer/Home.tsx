@@ -16,7 +16,7 @@ export default function Home() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    // 1. Fetch Latest Products (Featured)
+    // 1. Fetch Latest Products (Featured) - Independent from Orders
     const qFeatured = query(collection(db, 'products'), limit(4));
     const unsubFeatured = onSnapshot(qFeatured, (snapshot) => {
       const fetched: any[] = [];
@@ -24,38 +24,45 @@ export default function Home() {
         fetched.push({ id: doc.id, ...doc.data() });
       });
       setFeaturedProducts(fetched);
+      setLoading(false); // ✅ This ensures the loading screen goes away!
+    }, (error) => {
+      console.error("Error fetching featured products:", error);
+      setLoading(false);
     });
 
-    // 2. Fetch Orders & Calculate Bestsellers
+    // 2. Fetch Orders & Calculate Bestsellers (Wrapped in try/catch internally)
     const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
-      const productSales: Record<string, { count: number, productData: any }> = {};
-      
-      snapshot.forEach((doc) => {
-        const order = doc.data();
-        if (order.status !== 'Cancelled' && order.items) {
-          order.items.forEach((item: any) => {
-            // Safely get ID and quantity to prevent NaN
-            const itemId = item.productId || item._id;
-            const qty = Number(item.quantity) || 1; 
+      try {
+        const productSales: Record<string, { count: number, productData: any }> = {};
+        
+        snapshot.forEach((doc) => {
+          const order = doc.data();
+          if (order.status !== 'Cancelled' && order.items) {
+            order.items.forEach((item: any) => {
+              // Safely get ID and quantity to prevent NaN
+              const itemId = item.productId || item._id;
+              const qty = Number(item.quantity) || 1; 
 
-            if (itemId) {
-              if (!productSales[itemId]) {
-                productSales[itemId] = { count: 0, productData: item };
+              if (itemId) {
+                if (!productSales[itemId]) {
+                  productSales[itemId] = { count: 0, productData: item };
+                }
+                productSales[itemId].count += qty;
               }
-              productSales[itemId].count += qty;
-            }
-          });
-        }
-      });
+            });
+          }
+        });
 
-      // Sort by highest count and take top 4
-      const topSelling = Object.values(productSales)
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 4)
-        .map((item) => ({ ...item.productData, salesCount: item.count }));
+        // Sort by highest count and take top 4
+        const topSelling = Object.values(productSales)
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 4)
+          .map((item) => ({ ...item.productData, salesCount: item.count }));
 
-      setBestsellers(topSelling);
-      setLoading(false);
+        setBestsellers(topSelling);
+      } catch (err) {
+        console.error("Bestseller calculation failed", err);
+      }
     });
 
     return () => {
@@ -170,7 +177,6 @@ export default function Home() {
                   flexDirection: 'column',
                   position: 'relative'
                 }}>
-                  {/* Safely display Sales Badge */}
                   {product.salesCount > 0 && (
                     <div style={{ position: 'absolute', top: '10px', left: '10px', backgroundColor: '#ef4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold', zIndex: 1 }}>
                       {product.salesCount} Sold
