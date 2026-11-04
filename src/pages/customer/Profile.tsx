@@ -224,12 +224,12 @@ export default function Profile() {
                 <div>
                   <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order Placed</p>
                   <p style={{ margin: 0, fontWeight: 'bold' }}>
-                    {new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
+                   {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' }) : 'Just now'}
                   </p>
                 </div>
                 <div>
                   <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Total</p>
-                  <p style={{ margin: 0, fontWeight: 'bold' }}>₹{Number(order.total).toFixed(2)}</p>
+                  <p style={{ margin: 0, fontWeight: 'bold' }}>₹{Number(order.totalAmount || order.total || 0).toFixed(2)}</p>
                 </div>
                 <div>
                   <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280', textTransform: 'uppercase' }}>Order ID</p>
@@ -294,8 +294,8 @@ export default function Profile() {
                   </div>
                   
                   <div style={{ marginTop: '16px', backgroundColor: '#f9fafb', padding: '16px', borderRadius: '6px' }}>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Shipping Address:</strong> {order.address}</p>
-                    <p style={{ margin: 0, fontSize: '14px' }}><strong>Phone:</strong> {order.phone}</p>
+                   <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}><strong>Shipping Address:</strong> {order.shippingAddress || order.address || 'N/A'}</p>
+<p style={{ margin: 0, fontSize: '14px' }}><strong>Phone:</strong> {order.phoneNumber || order.phone || 'N/A'}</p>
                     {order.couponUsed && (
                       <p style={{ margin: '8px 0 0 0', fontSize: '14px', color: '#10b981' }}>
                         <strong>Coupon Applied:</strong> {order.couponUsed} (-₹{order.discountApplied})
