@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -13,7 +13,7 @@
     "@emailjs/browser": "^5.0.3",
     "axios": "^1.20.0",
     "dotenv": "^18.0.9",
-    "firebase": "^13.0.0",
+    "firebase": "^13.2.0",
     "firebase-admin": "^14.5.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

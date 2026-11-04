@@ -4,7 +4,7 @@ import { db } from '../../data/firebase';
 import { updateProfile } from 'firebase/auth';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, increment,setDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, increment, setDoc } from 'firebase/firestore';
 
 export default function Profile() {
   const { user, logout } = useAuth(); 
@@ -78,7 +78,7 @@ export default function Profile() {
     }
   };
 
-    const handleCancelOrder = async (orderId: string, items: any[]) => {
+  const handleCancelOrder = async (orderId: string, items: any[]) => {
     if (!window.confirm("Are you sure you want to cancel this order?")) return;
 
     setCancellingId(orderId);
@@ -109,7 +109,7 @@ export default function Profile() {
     return <div style={{ padding: '40px', textAlign: 'center' }}>Please log in to view your profile.</div>;
   }
 
-  // 🚨 Helper function for the timeline
+  // Helper function for the timeline
   const renderTimeline = (status: string) => {
     const steps = ['Pending', 'Shipped', 'Delivered'];
     const currentIndex = steps.indexOf(status);
@@ -248,12 +248,12 @@ export default function Profile() {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {order.status === 'Pending' && (
                     <button 
-  onClick={() => handleCancelOrder(order.id, order.items)}
-  disabled={cancellingId === order.id}
-  style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
->
-  {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
-</button>
+                      onClick={() => handleCancelOrder(order.id, order.items)}
+                      disabled={cancellingId === order.id}
+                      style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: '1px solid #fecaca', padding: '6px 12px', borderRadius: '4px', cursor: cancellingId === order.id ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+                    >
+                      {cancellingId === order.id ? 'Cancelling...' : 'Cancel Order'}
+                    </button>
                   )}
                   
                   <button 
@@ -269,7 +269,7 @@ export default function Profile() {
               {expandedOrder === order.id && (
                 <div style={{ padding: '24px' }}>
                   
-                  {/* ✅ NEW: Order Tracking Timeline */}
+                  {/* Order Tracking Timeline */}
                   <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
                     <h4 style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#374151', textTransform: 'uppercase' }}>Order Status</h4>
                     {renderTimeline(order.status)}
@@ -301,7 +301,18 @@ export default function Profile() {
                         <strong>Coupon Applied:</strong> {order.couponUsed} (-₹{order.discountApplied})
                       </p>
                     )}
+                    
+                    {/* VIEW & PRINT BILL BUTTON */}
+                    <div style={{ marginTop: '16px', borderTop: '1px solid #e5e7eb', paddingTop: '16px' }}>
+                      <Link 
+                        to={`/invoice/${order.id}`} 
+                        style={{ display: 'inline-block', padding: '8px 16px', backgroundColor: '#2563eb', color: 'white', borderRadius: '5px', textDecoration: 'none', fontWeight: 'bold', fontSize: '14px' }}
+                      >
+                        🧾 View & Print Bill
+                      </Link>
+                    </div>
                   </div>
+
                 </div>
               )}
             </div>

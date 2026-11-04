@@ -4,13 +4,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useCart } from '../../context/CartContext';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const { itemCount } = useCart(); // Or whatever your cart count variable is
   const navigate = useNavigate();
   
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const isAdmin = user?.isAdmin;
 
   const handleLogout = async () => {
     if (logout) {

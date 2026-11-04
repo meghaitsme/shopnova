@@ -1,312 +1,224 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { db } from '../../data/firebase';
-// ✅ Added doc and getDoc for the low stock check
-import { collection, addDoc, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { useCart } from '../../context/CartContext'; 
-import { useToast } from '../../context/ToastContext';
-import emailjs from '@emailjs/browser';
+import { db } from '../../data/firebase'; // Make sure this path is correct
+import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 
-export default function Checkout() {
-  const navigate = useNavigate();
+const Checkout = () => {
+  const { cart, clearCart } = useCart();
   const { user } = useAuth();
-  const { cart, clearCart, totalPrice: cartTotal } = useCart(); 
-  const { showToast } = useToast();
+  const navigate = useNavigate();
 
+  // Form States
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
+  
+  // Coupon States
   const [couponCode, setCouponCode] = useState('');
   const [discount, setDiscount] = useState(0);
-  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
-  const [couponError, setCouponError] = useState('');
+  const [couponMessage, setCouponMessage] = useState('');
   
-  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
+  // Processing State
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const FREE_SHIPPING_THRESHOLD = 500;
-  const SHIPPING_FEE = 50;
-  
-  const shippingCost = cartTotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
-  const finalTotal = cartTotal + shippingCost - discount;
+  // Calculate prices
+  const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const shipping = 50; // Fixed shipping cost
+  const finalTotal = (subtotal + shipping) - discount > 0 ? (subtotal + shipping) - discount : 0;
 
-  // 1. Fetch Available Coupons
-  useEffect(() => {
-    async function fetchCoupons() {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'coupons'));
-        const validCoupons: any[] = [];
-        
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          if (new Date(data.expiryDate) >= new Date()) {
-            validCoupons.push(data);
-          }
-        });
-        setAvailableCoupons(validCoupons);
-      } catch (err) {
-        console.error("Failed to load available coupons:", err);
-      }
-    }
-    fetchCoupons();
-  }, []);
-
-  // 2. Apply Coupon Logic
-  const handleApplyCoupon = async (codeToApply?: string) => {
-    setCouponError('');
-    setAppliedCoupon(null);
-    setDiscount(0);
-
-    const code = codeToApply || couponCode;
-    if (!code.trim()) return;
-
+  const handleApplyCoupon = async () => {
+    if (!couponCode || !user) return;
+    
     try {
-      const q = query(collection(db, 'coupons'), where('code', '==', code.trim().toUpperCase()));
+      const q = query(collection(db, "coupons"), where("code", "==", couponCode.toUpperCase()));
       const querySnapshot = await getDocs(q);
 
-      if (querySnapshot.empty) {
-        setCouponError('Invalid coupon code.');
-        return;
-      }
+      if (!querySnapshot.empty) {
+        const couponData = querySnapshot.docs[0].data();
+        const discountAmount = couponData.discount;
+        const minAmount = couponData.minAmount;
 
-      const couponData = querySnapshot.docs[0].data();
+        // 👈 CHECK IF ALREADY USED
+        const qOrders = query(
+          collection(db, "orders"), 
+          where("userId", "==", user.uid),
+          where("couponUsed", "==", couponCode.toUpperCase())
+        );
+        const pastOrders = await getDocs(qOrders);
 
-      if (new Date(couponData.expiryDate) < new Date()) {
-        setCouponError('This coupon has expired.');
-        return;
-      }
+        if (!pastOrders.empty) {
+          setDiscount(0);
+          setCouponMessage("You have already used this coupon.");
+          return; // Stop right here
+        }
 
-      let discountAmount = 0;
-      if (couponData.discountType === 'percentage') {
-        discountAmount = (cartTotal * couponData.discountValue) / 100;
+        // Check minimum amount
+        if (subtotal >= minAmount) {
+          setDiscount(discountAmount);
+          setCouponMessage(`Coupon applied! ₹${discountAmount} off.`);
+        } else {
+          setDiscount(0);
+          setCouponMessage(`Add items worth ₹${minAmount - subtotal} more to use this coupon.`);
+        }
       } else {
-        discountAmount = couponData.discountValue;
+        setDiscount(0);
+        setCouponMessage('Invalid coupon code.');
       }
-
-      if (discountAmount > cartTotal) discountAmount = cartTotal;
-
-      setDiscount(discountAmount);
-      setAppliedCoupon(couponData);
-      setCouponCode(couponData.code);
-      showToast("Coupon applied successfully!", "success");
-    } catch (err) {
-      console.error("Error applying coupon:", err);
-      setCouponError('Failed to apply coupon.');
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      setCouponMessage('Error applying coupon.');
     }
   };
 
-  // 3. Place Order & Send Emails
+  // --- PLACE ORDER LOGIC ---
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) { showToast("Please login first.", "error"); return; }
-    if (!cart || cart.length === 0) { showToast("Your cart is empty.", "error"); return; }
+    if (!user) {
+      alert("Please login first!");
+      navigate('/login');
+      return;
+    }
 
-    setLoading(true);
-    
-    // ✅ Declare env variables here so they are available throughout the function
-    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
-    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
-    const receiptTemplateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
-    const lowStockTemplateId = import.meta.env.VITE_EMAILJS_LOW_STOCK_TEMPLATE_ID;
+    if (cart.length === 0) return;
+
+    setIsProcessing(true);
 
     try {
-      // ✅ STEP 1: Check for Low Stock BEFORE placing the order
-      let lowStockItems: string[] = [];
-      
-      for (const item of cart) {
-        const productRef = doc(db, 'products', item._id);
-        const productSnap = await getDoc(productRef);
-        
-        if (productSnap.exists()) {
-          const currentStock = productSnap.data().stock || 0;
-          if (currentStock <= 5) {
-            lowStockItems.push(`${item.name} (Only ${currentStock} left)`);
-          }
-        }
-      }
-
-      // ✅ STEP 2: Send Low Stock Alert Email to Admin
-      if (lowStockItems.length > 0 && serviceId && lowStockTemplateId && publicKey) {
-        try {
-          await emailjs.send(
-            serviceId,
-            lowStockTemplateId,
-            {
-              items_list: lowStockItems.join('\n'),
-              customer_name: user.displayName || user.email,
-            },
-            publicKey
-          );
-          console.log("Low stock alert email sent to admin.");
-        } catch (emailErr) {
-          console.error("Failed to send low stock alert:", emailErr);
-        }
-      }
-
-      // ✅ STEP 3: Proceed with saving the order
-      const orderData = {
-        customerName: user.displayName || user.email || 'Unknown',
-        customerEmail: user.email || 'No email',
-        address: address,
-        phone: phone,
+           const orderData = {
+        userId: user.uid,
+        userEmail: user.email,
         items: cart,
-        subtotal: cartTotal,
-        shippingCost: shippingCost,
+        subtotal: subtotal,
+        shipping: shipping,
         discountApplied: discount,
-        total: finalTotal,
-        couponUsed: appliedCoupon ? appliedCoupon.code : null,
-        status: 'Pending',
-        createdAt: new Date().toISOString()
+        couponUsed: discount > 0 ? couponCode.toUpperCase() : null, // 👈 SAVE IT HERE
+        totalAmount: finalTotal,
+        shippingAddress: address,
+        phoneNumber: phone,
+        status: "Pending",
+        createdAt: new Date()
       };
 
-      const docRef = await addDoc(collection(db, 'orders'), orderData);
-      
-      // ✅ STEP 4: Send Order Receipt to Customer
-      if (serviceId && receiptTemplateId && publicKey) {
-        try {
-          await emailjs.send(
-            serviceId,
-            receiptTemplateId,
-            {
-              to_name: user.displayName || 'Customer',
-              to_email: user.email,
-              order_id: docRef.id,
-              order_total: finalTotal.toFixed(2),
-              order_status: 'Pending'
-            },
-            publicKey
-          );
-          console.log("Confirmation email sent successfully!");
-        } catch (emailErr) {
-          console.error("Failed to send confirmation email:", emailErr);
-        }
-      }
-      
-      if (clearCart) clearCart();
-      
-      setOrderSuccess(true);
-      showToast("Order placed successfully!", "success");
-      setTimeout(() => navigate('/order-success'), 1500);
+      await addDoc(collection(db, "orders"), orderData);
 
-    } catch (err) {
-      console.error("Error placing order:", err);
-      showToast("Failed to place order. Please try again.", "error");
+      alert("Order placed successfully!");
+      clearCart(); 
+      navigate('/'); 
+      
+    } catch (error) {
+      console.error("Error placing order: ", error);
+      alert("Failed to place order. Please try again.");
     } finally {
-      setLoading(false);
+      setIsProcessing(false);
     }
   };
 
-  if (orderSuccess) {
-    return <div style={{ padding: '50px', textAlign: 'center', fontSize: '24px', color: 'green' }}>Order Placed Successfully! Redirecting...</div>;
+  if (cart.length === 0) {
+    return (
+      <div style={{ padding: '50px', textAlign: 'center' }}>
+        <h2>Your Cart is Empty</h2>
+        <button onClick={() => navigate('/')} style={{ padding: '10px 20px', marginTop: '20px', cursor: 'pointer' }}>Go Shopping</button>
+      </div>
+    );
   }
 
   return (
-    <div style={{ padding: '24px', maxWidth: '800px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '24px' }}>Checkout</h1>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        
-        {/* Left Side: Shipping Form */}
-        <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: 0 }}>Shipping Details</h2>
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto', display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+      
+      {/* LEFT SIDE: Shipping Details */}
+      <div style={{ flex: 1, minWidth: '300px' }}>
+        <h2>Checkout</h2>
+        <h3>Shipping Details</h3>
+        <form onSubmit={handlePlaceOrder} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px' }}>Full Address:</label>
+            <textarea 
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              rows={4}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}
+              placeholder="Enter your full shipping address"
+            />
+          </div>
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px' }}>Phone Number:</label>
+            <input 
+              type="text" 
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '5px' }}
+              placeholder="Enter your phone number"
+            />
+          </div>
           
-          <div>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Full Address</label>
-            <textarea required value={address} onChange={e => setAddress(e.target.value)} rows={3} style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', resize: 'vertical' }} />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Phone Number</label>
-            <input required type="tel" value={phone} onChange={e => setPhone(e.target.value)} style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} />
-          </div>
-
-          <button type="submit" disabled={loading} style={{ padding: '14px', backgroundColor: loading ? '#9ca3af' : '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: loading ? 'not-allowed' : 'pointer', marginTop: '16px' }}>
-            {loading ? 'Processing...' : `Place Order (₹${finalTotal.toFixed(2)})`}
+          <button 
+            type="submit" 
+            disabled={isProcessing}
+            style={{ backgroundColor: '#10b981', color: 'white', padding: '12px', border: 'none', borderRadius: '5px', cursor: 'pointer', fontSize: '16px', fontWeight: 'bold', marginTop: '10px' }}
+          >
+            {isProcessing ? "Processing..." : `Place Order (₹${finalTotal.toFixed(2)})`}
           </button>
         </form>
+      </div>
 
-        {/* Right Side: Order Summary & Coupon */}
-        <div style={{ backgroundColor: '#f9fafb', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', height: 'fit-content' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 16px 0' }}>Order Summary</h2>
-          
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
-            <span>Subtotal</span>
-            <span>₹{cartTotal.toFixed(2)}</span>
+      {/* RIGHT SIDE: Order Summary & Coupon */}
+      <div style={{ flex: 1, minWidth: '300px', backgroundColor: '#f9fafb', padding: '20px', borderRadius: '8px' }}>
+        <h3>Order Summary</h3>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+          <span>Subtotal</span>
+          <span>₹{subtotal.toFixed(2)}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+          <span>Shipping</span>
+          <span>₹{shipping.toFixed(2)}</span>
+        </div>
+        {discount > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px', color: 'green' }}>
+            <span>Discount</span>
+            <span>-₹{discount.toFixed(2)}</span>
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#4b5563' }}>
-            <span>Shipping</span>
-            <span style={{ color: shippingCost === 0 ? '#10b981' : '#4b5563', fontWeight: shippingCost === 0 ? 'bold' : 'normal' }}>
-              {shippingCost === 0 ? 'FREE' : `₹${shippingCost.toFixed(2)}`}
-            </span>
-          </div>
-          {shippingCost > 0 && (
-            <p style={{ fontSize: '12px', color: '#6b7280', margin: '-4px 0 8px 0' }}>
-              Add ₹{(FREE_SHIPPING_THRESHOLD - cartTotal).toFixed(2)} more for FREE shipping!
-            </p>
-          )}
-
-          {discount > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10b981', fontWeight: 'bold' }}>
-              <span>Discount ({appliedCoupon?.code})</span>
-              <span>-₹{discount.toFixed(2)}</span>
-            </div>
-          )}
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #e5e7eb', fontWeight: 'bold', fontSize: '18px' }}>
-            <span>Total</span>
-            <span>₹{finalTotal.toFixed(2)}</span>
-          </div>
-
-          {/* Coupon Input */}
-          <div style={{ marginTop: '24px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Have a coupon?</label>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                placeholder="Enter code" 
-                value={couponCode}
-                onChange={e => setCouponCode(e.target.value)}
-                style={{ flex: 1, padding: '8px 12px', border: '1px solid #ccc', borderRadius: '6px', textTransform: 'uppercase' }}
-              />
-              <button type="button" onClick={() => handleApplyCoupon()} style={{ padding: '8px 16px', backgroundColor: '#374151', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Apply
-              </button>
-            </div>
-            {couponError && <p style={{ color: '#ef4444', fontSize: '12px', margin: '4px 0 0 0' }}>{couponError}</p>}
-            {appliedCoupon && <p style={{ color: '#10b981', fontSize: '12px', margin: '4px 0 0 0' }}>Coupon Applied!</p>}
-          </div>
-
-          {/* Available Coupons Section */}
-          {availableCoupons.length > 0 && !appliedCoupon && (
-            <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px dashed #ccc' }}>
-              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#6b7280', marginBottom: '8px' }}>Available Offers</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {availableCoupons.map((coupon, idx) => (
-                  <div 
-                    key={idx} 
-                    onClick={() => handleApplyCoupon(coupon.code)}
-                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', border: '1px solid #e5e7eb', padding: '8px 12px', borderRadius: '6px', cursor: 'pointer' }}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 'bold', fontSize: '13px', backgroundColor: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', marginRight: '8px' }}>
-                        {coupon.code}
-                      </span>
-                      <span style={{ fontSize: '13px', color: '#374151' }}>
-                        {coupon.discountType === 'percentage' ? `${coupon.discountValue}% OFF` : `₹${coupon.discountValue} OFF`}
-                      </span>
-                    </div>
-                    <span style={{ fontSize: '12px', color: '#2563eb', fontWeight: 'bold' }}>Apply</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
+        )}
+        
+        <hr style={{ margin: '20px 0', border: 'none', borderTop: '1px solid #e5e7eb' }} />
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
+          <span>Total</span>
+          <span>₹{finalTotal.toFixed(2)}</span>
         </div>
 
+        {/* Coupon Section */}
+<div style={{ marginTop: '30px' }}>
+  <h4 style={{ marginBottom: '10px' }}>Have a coupon?</h4>
+  <div style={{ display: 'flex', gap: '10px' }}>
+    <input 
+      type="text" 
+      placeholder="ENTER CODE" 
+      value={couponCode} 
+      onChange={(e) => setCouponCode(e.target.value)} 
+      style={{ flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '5px' }}
+    />
+    <button 
+      type="button"  // 👈 This must be type="button" so it doesn't submit the form
+      onClick={handleApplyCoupon} // 👈 This must call the function
+      style={{ backgroundColor: '#334155', color: 'white', padding: '8px 15px', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+    >
+      Apply
+    </button>
+  </div>
+  {couponMessage && (
+    <p style={{ color: discount > 0 ? 'green' : 'red', marginTop: '10px', fontSize: '14px' }}>
+      {couponMessage}
+    </p>
+  )}
+</div>
       </div>
+
     </div>
   );
-}
+};
+
+export default Checkout;

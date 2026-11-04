@@ -5,9 +5,10 @@ import { collection, onSnapshot, addDoc, deleteDoc, doc, query } from 'firebase/
 export interface Coupon {
   id: string;
   code: string;
-  discountType: 'percentage' | 'fixed';
-  discountValue: number;
+  discount: number;      // The ₹ amount off
+  minAmount: number;     // The minimum cart value required
   expiryDate: string;
+  isActive?: boolean;    
 }
 
 export default function AdminCoupons() {
@@ -18,14 +19,13 @@ export default function AdminCoupons() {
   // Form State
   const [isAdding, setIsAdding] = useState(false);
   const [code, setCode] = useState('');
-  const [discountType, setDiscountType] = useState<'percentage' | 'fixed'>('percentage');
-  const [discountValue, setDiscountValue] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [minAmount, setMinAmount] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   // 1. Fetch Coupons
   useEffect(() => {
-    // Note: If your coupons don't have a 'createdAt' field, you might need to remove the orderBy
     const q = query(collection(db, 'coupons')); 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -35,12 +35,12 @@ export default function AdminCoupons() {
         fetched.push({
           id: doc.id,
           code: data.code || 'UNKNOWN',
-          discountType: data.discountType || 'percentage',
-          discountValue: Number(data.discountValue) || 0,
+          discount: Number(data.discount) || 0,
+          minAmount: Number(data.minAmount) || 0,
           expiryDate: data.expiryDate || '',
         });
       });
-      // Sort in memory just in case
+      // Sort in memory
       fetched.sort((a, b) => a.code.localeCompare(b.code));
       setCoupons(fetched);
       setLoading(false);
@@ -56,27 +56,28 @@ export default function AdminCoupons() {
   // 2. Add Coupon
   const handleAddCoupon = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code || !discountValue || !expiryDate) {
+    if (!code || !discount || !minAmount || !expiryDate) {
       alert("Please fill all fields");
       return;
     }
 
     setSaving(true);
     try {
-      // Convert code to uppercase so "SAVE10" and "save10" are the same
       const formattedCode = code.trim().toUpperCase();
 
       await addDoc(collection(db, 'coupons'), {
         code: formattedCode,
-        discountType,
-        discountValue: Number(discountValue),
+        discount: Number(discount),
+        minAmount: Number(minAmount),
         expiryDate,
+        isActive: true,
         createdAt: new Date().toISOString()
       });
 
       // Reset form
       setCode('');
-      setDiscountValue('');
+      setDiscount('');
+      setMinAmount('');
       setExpiryDate('');
       setIsAdding(false);
     } catch (err) {
@@ -127,34 +128,35 @@ export default function AdminCoupons() {
             <input 
               required 
               type="text" 
-              placeholder="e.g. SUMMER50"
+              placeholder="e.g. DASARAOFF"
               value={code} 
               onChange={e => setCode(e.target.value)} 
               style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', textTransform: 'uppercase' }} 
             />
           </div>
 
-          <div style={{ flex: '1 1 150px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Type</label>
-            <select 
-              value={discountType} 
-              onChange={e => setDiscountType(e.target.value as 'percentage' | 'fixed')}
-              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', backgroundColor: 'white' }}
-            >
-              <option value="percentage">Percentage (%)</option>
-              <option value="fixed">Fixed Amount (₹)</option>
-            </select>
-          </div>
-
           <div style={{ flex: '1 1 120px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Value</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Discount (₹)</label>
             <input 
               required 
               type="number" 
               min="1"
-              placeholder={discountType === 'percentage' ? "10" : "500"}
-              value={discountValue} 
-              onChange={e => setDiscountValue(e.target.value)} 
+              placeholder="10"
+              value={discount} 
+              onChange={e => setDiscount(e.target.value)} 
+              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
+            />
+          </div>
+
+          <div style={{ flex: '1 1 120px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Min Amount (₹)</label>
+            <input 
+              required 
+              type="number" 
+              min="0"
+              placeholder="15"
+              value={minAmount} 
+              onChange={e => setMinAmount(e.target.value)} 
               style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
             />
           </div>
@@ -187,6 +189,7 @@ export default function AdminCoupons() {
             <tr>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Code</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Discount</th>
+              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Min Amount</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Expiry Date</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Status</th>
               <th style={{ padding: '16px', fontSize: '14px', color: '#374151', textAlign: 'center' }}>Action</th>
@@ -195,7 +198,7 @@ export default function AdminCoupons() {
           <tbody>
             {coupons.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
+                <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
                   No coupons created yet.
                 </td>
               </tr>
@@ -208,9 +211,10 @@ export default function AdminCoupons() {
                       {coupon.code}
                     </td>
                     <td style={{ padding: '16px', fontWeight: 'bold', color: '#10b981' }}>
-                      {coupon.discountType === 'percentage' 
-                        ? `${coupon.discountValue}% OFF` 
-                        : `₹${coupon.discountValue} OFF`}
+                      ₹{coupon.discount} OFF
+                    </td>
+                    <td style={{ padding: '16px', color: '#6b7280' }}>
+                      ₹{coupon.minAmount}
                     </td>
                     <td style={{ padding: '16px', color: '#6b7280' }}>
                       {coupon.expiryDate}

@@ -1,140 +1,142 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useCart } from '../../context/CartContext';
-import { formatPrice } from '../../utils/format';
+import { Link, useNavigate } from 'react-router-dom';
 
-export default function Cart() {
+const Cart = () => {
+  const { cart, removeFromCart, clearCart } = useCart();
   const navigate = useNavigate();
   
-  // Using your exact CartContext values
-  const { cart, removeFromCart, updateQuantity, totalPrice } = useCart();
+  // Coupon States
+  const [couponCode, setCouponCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [couponMessage, setCouponMessage] = useState('');
+
+  // Calculate total price
+  const totalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  const finalTotal = totalPrice - discount > 0 ? totalPrice - discount : 0;
+
+  // Coupon Function connected to MongoDB Backend
+  const handleApplyCoupon = async () => {
+    if (!couponCode) return;
+
+    try {
+      setCouponMessage('Applying...');
+      
+      // You'll need to pass a real user ID and order ID in production
+      const userId = "buyer2026"; 
+      const orderId = "order_" + Date.now(); 
+
+      const response = await fetch("http://localhost:5000/api/coupon/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: couponCode,
+          userId: userId,
+          orderId: orderId,
+          cartTotal: totalPrice
+        })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setDiscount(data.discount);
+        setCouponMessage(`Coupon applied! ₹${data.discount} off.`);
+      } else {
+        setDiscount(0);
+        // This will display "EXPIRED", "INVALID_CODE", or "MIN_CART_NOT_MET" from your backend
+        setCouponMessage(`Error: ${data.message}`); 
+      }
+    } catch (error) {
+      console.error("Error applying coupon:", error);
+      setDiscount(0);
+      setCouponMessage('Failed to connect to server.');
+    }
+  };
 
   if (cart.length === 0) {
     return (
-      <div style={{ padding: '80px 20px', textAlign: 'center', fontFamily: 'sans-serif', minHeight: '60vh' }}>
-        <h2 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '16px' }}>Your Cart is Empty</h2>
-        <p style={{ color: '#6b7280', marginBottom: '32px' }}>Looks like you haven't added anything to your cart yet.</p>
-        <Link 
-          to="/products" 
-          style={{ padding: '12px 24px', backgroundColor: '#2563eb', color: 'white', textDecoration: 'none', borderRadius: '6px', fontWeight: 'bold' }}
-        >
-          Start Shopping
-        </Link>
+      <div style={{ padding: '50px', textAlign: 'center' }}>
+        <h2>Your Cart is Empty</h2>
+        <Link to="/" style={{ color: 'blue', textDecoration: 'underline' }}>Go back to shopping</Link>
       </div>
     );
   }
 
   return (
-    <div style={{ backgroundColor: '#f9fafb', minHeight: '100vh', padding: '40px 20px', fontFamily: 'sans-serif' }}>
-      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-        
-        <h1 style={{ fontSize: '32px', fontWeight: 'bold', marginBottom: '32px' }}>Shopping Cart</h1>
-
-        <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          
-          {/* Left Side: Cart Items */}
-          <div style={{ flex: '1 1 600px', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-            {cart.map((item: any, index: number) => {
-              const imageUrl = item.image || item.imageUrl || 'https://placehold.co/100x100';
-
-               // ✅ NEW: Calculate bulk discount per item
-              const hasBulkDiscount = item.quantity >= 2;
-              const originalTotal = Number(item.price) * (item.quantity || 1);
-              const itemTotal = hasBulkDiscount ? originalTotal * 0.9 : originalTotal;
-
-              return (
-                <div key={item._id || index} style={{ display: 'flex', gap: '20px', padding: '20px', borderBottom: index !== cart.length - 1 ? '1px solid #e5e7eb' : 'none', alignItems: 'center', flexWrap: 'wrap' }}>
-                  
-                  {/* Image */}
-                  <div style={{ width: '80px', height: '80px', backgroundColor: '#f3f4f6', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={imageUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </div>
-
-                  {/* Details & Quantity Controls */}
-                  <div style={{ flex: 1, minWidth: '200px' }}>
-                    <Link to={`/product/${item._id}`} style={{ textDecoration: 'none', color: '#111827', fontWeight: 'bold', fontSize: '18px', display: 'block', marginBottom: '8px' }}>
-                      {item.name}
-                    </Link>
-                    <p style={{ margin: '0 0 12px 0', color: '#4b5563', fontWeight: 'bold' }}>{formatPrice(item.price)}</p>
-                    
-                    {/* Quantity Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #d1d5db', borderRadius: '4px' }}>
-                        <button 
-                          onClick={() => updateQuantity(item._id, Math.max(1, (item.quantity || 1) - 1))}
-                          style={{ padding: '4px 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px' }}
-                        >
-                          -
-                        </button>
-                        <span style={{ padding: '4px 12px', borderLeft: '1px solid #d1d5db', borderRight: '1px solid #d1d5db', fontWeight: 'bold' }}>
-                          {item.quantity || 1}
-                        </span>
-                        <button 
-                          onClick={() => updateQuantity(item._id, (item.quantity || 1) + 1)}
-                          style={{ padding: '4px 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px' }}
-                        >
-                          +
-                        </button>
-                      </div>
-                      <button 
-                        onClick={() => removeFromCart(item._id)}
-                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-
-                {/* Total Price */}
-                  <div style={{ textAlign: 'right', minWidth: '120px' }}>
-                    {hasBulkDiscount && (
-                      <div style={{ fontSize: '12px', color: '#10b981', fontWeight: 'bold', marginBottom: '2px' }}>
-                        10% Bulk Discount
-                      </div>
-                    )}
-                    <p style={{ margin: 0, fontWeight: 'bold', fontSize: '18px', color: hasBulkDiscount ? '#10b981' : '#111827' }}>
-                      {formatPrice(itemTotal)}
-                    </p>
-                    {hasBulkDiscount && (
-                      <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af', textDecoration: 'line-through' }}>
-                        {formatPrice(originalTotal)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* Right Side: Order Summary */}
-          <div style={{ flex: '1 1 300px', backgroundColor: 'white', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
-            <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '0 0 20px 0', borderBottom: '1px solid #e5e7eb', paddingBottom: '16px' }}>
-              Price Details
-            </h2>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', color: '#4b5563' }}>
-              <span>Price ({cart.length} items)</span>
-              <span>{formatPrice(totalPrice)}</span>
+    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+      <h2>Your Shopping Cart</h2>
+      
+      <div style={{ marginTop: '20px' }}>
+        {cart.map((item) => (
+          <div key={item.id} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #ccc', padding: '10px 0' }}>
+            <img src={item.image} alt={item.name} style={{ width: '80px', height: '80px', objectFit: 'cover', marginRight: '20px' }} />
+            <div style={{ flex: 1 }}>
+              <h3>{item.name}</h3>
+              <p>Quantity: {item.quantity}</p>
+              <p>Price: ₹{item.price}</p>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', color: '#4b5563' }}>
-              <span>Delivery Charges</span>
-              <span style={{ color: '#10b981', fontWeight: 'bold' }}>FREE</span>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '24px', paddingTop: '16px', borderTop: '1px dashed #e5e7eb', fontWeight: 'bold', fontSize: '20px' }}>
-              <span>Total Amount</span>
-              <span>{formatPrice(totalPrice)}</span>
-            </div>
-
             <button 
-              onClick={() => navigate('/checkout')}
-              style={{ width: '100%', marginTop: '24px', padding: '16px', backgroundColor: '#fb641b', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '16px', cursor: 'pointer' }}
+              onClick={() => removeFromCart(item.id)}
+              style={{ backgroundColor: 'red', color: 'white', border: 'none', padding: '8px 12px', cursor: 'pointer', borderRadius: '5px' }}
             >
-              Proceed to Checkout
+              Remove
             </button>
           </div>
+        ))}
+      </div>
 
+      {/* --- COUPON SECTION --- */}
+      <div style={{ marginTop: '30px', borderTop: '1px solid #eaeaea', paddingTop: '20px' }}>
+        <h3>Have a coupon?</h3>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
+          <input 
+            type="text" 
+            placeholder="ENTER CODE" 
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value)}
+            style={{ padding: '10px', border: '1px solid #ccc', borderRadius: '5px', flex: 1, maxWidth: '300px' }}
+          />
+          <button 
+            onClick={handleApplyCoupon}
+            style={{ backgroundColor: '#334155', color: 'white', padding: '10px 20px', borderRadius: '5px', cursor: 'pointer', border: 'none' }}
+          >
+            Apply
+          </button>
+        </div>
+        {couponMessage && (
+          <p style={{ color: discount > 0 ? 'green' : 'red', marginTop: '10px', fontSize: '14px' }}>
+            {couponMessage}
+          </p>
+        )}
+      </div>
+
+      {/* --- TOTAL SECTION --- */}
+      <div style={{ marginTop: '30px', textAlign: 'right', borderTop: '1px solid #eaeaea', paddingTop: '20px' }}>
+        {discount > 0 && (
+          <p style={{ color: 'gray', textDecoration: 'line-through', fontSize: '16px' }}>
+            Subtotal: ₹{totalPrice.toFixed(2)}
+          </p>
+        )}
+        <h3>Total: ₹{finalTotal.toFixed(2)}</h3>
+        
+        <div style={{ marginTop: '20px' }}>
+          <button 
+            onClick={clearCart}
+            style={{ marginRight: '10px', padding: '10px 20px', cursor: 'pointer', borderRadius: '5px', border: '1px solid #ccc' }}
+          >
+            Clear Cart
+          </button>
+          <button 
+            onClick={() => navigate('/checkout')}
+            style={{ backgroundColor: '#2563eb', color: 'white', border: 'none', padding: '10px 20px', cursor: 'pointer', borderRadius: '5px' }}
+          >
+            Proceed to Checkout
+          </button>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default Cart;

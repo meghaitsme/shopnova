@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { auth, db } from '../data/firebase';
 import { 
   onAuthStateChanged, 
@@ -6,12 +6,13 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword,
   updateProfile,
-  getIdTokenResult // 👈 CRITICAL IMPORT
+  type User
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 
 interface AuthContextType {
-  user: any;
+  user: User | null;
+  isAdmin: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -21,26 +22,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      console.log("🔐 [Auth] State changed. User:", currentUser?.email || "Guest");
+      setUser(currentUser);
       
       if (currentUser) {
-        // 🚨 forceRefresh = true ensures we get the admin claim
-        const tokenResult = await getIdTokenResult(currentUser, true); 
-        const isAdmin = tokenResult.claims.admin === true;
+        console.log("🔐 [Auth] State changed. User:", currentUser.email);
+        
+        // Fetch the user's role from Firestore Database
+        try {
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+          
+          if (userDocSnap.exists() && userDocSnap.data().role === 'admin') {
+            setIsAdmin(true);
+            console.log("👑 [Auth] User is an Admin");
+          } else {
+            setIsAdmin(false);
+            console.log("🛒 [Auth] User is a Customer");
+          }
+        } catch (error) {
+          console.error("Error fetching user role:", error);
+          setIsAdmin(false);
+        }
 
-        setUser({
-          uid: currentUser.uid,
-          email: currentUser.email,
-          displayName: currentUser.displayName || currentUser.email?.split('@')[0],
-          isAdmin: isAdmin, // 👈 Save the badge
-        });
       } else {
-        setUser(null);
+        setIsAdmin(false);
+        console.log("🔐 [Auth] State changed. User: Guest");
       }
       setLoading(false);
     });
@@ -59,6 +71,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
+      
+      // Save user to Firestore with 'customer' role by default
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         uid: userCredential.user.uid,
         name: name,
@@ -73,11 +87,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     await signOut(auth);
-    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, isAdmin, login, register, logout, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );
