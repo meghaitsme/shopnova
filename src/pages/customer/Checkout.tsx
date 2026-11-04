@@ -87,7 +87,7 @@ const Checkout = () => {
     try {
            const orderData = {
         userId: user.uid,
-        userEmail: user.email,
+        customerEmail: user.email,
         items: cart,
         subtotal: subtotal,
         shipping: shipping,

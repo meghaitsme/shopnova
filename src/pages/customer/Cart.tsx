@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useCart } from '../../context/CartContext';
-import { useAuth } from '../../context/AuthContext'; // Added to get real user ID
+import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { db } from '../../data/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 const Cart = () => {
   const { cart, removeFromCart, clearCart } = useCart();
-  const { user } = useAuth(); // Get logged-in user
+  const { user } = useAuth();
   const navigate = useNavigate();
   
   // Coupon States
@@ -17,44 +19,50 @@ const Cart = () => {
   const totalPrice = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const finalTotal = totalPrice - discount > 0 ? totalPrice - discount : 0;
 
-  // Coupon Function connected to MongoDB Backend
+  // Coupon Function using Firebase
   const handleApplyCoupon = async () => {
-    if (!couponCode) return;
+    if (!couponCode || !user) return;
 
     try {
       setCouponMessage('Applying...');
       
-      // Use real user ID, fallback to guest if not logged in
-      const userId = user?.uid || "guest"; 
-      const orderId = "order_" + Date.now(); 
+      const q = query(collection(db, "coupons"), where("code", "==", couponCode.toUpperCase()));
+      const querySnapshot = await getDocs(q);
 
-      // Use environment variable for API URL (Vercel will inject this)
-      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+      if (!querySnapshot.empty) {
+        const couponData = querySnapshot.docs[0].data();
+        const discountAmount = couponData.discount;
+        const minAmount = couponData.minAmount;
 
-      const response = await fetch(`${API_URL}/api/coupon/apply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          code: couponCode,
-          userId: userId,
-          orderId: orderId,
-          cartTotal: totalPrice
-        })
-      });
+        // Check if user already used it
+        const qOrders = query(
+          collection(db, "orders"), 
+          where("userId", "==", user.uid),
+          where("couponUsed", "==", couponCode.toUpperCase())
+        );
+        const pastOrders = await getDocs(qOrders);
 
-      const data = await response.json();
+        if (!pastOrders.empty) {
+          setDiscount(0);
+          setCouponMessage("You have already used this coupon.");
+          return;
+        }
 
-      if (data.success) {
-        setDiscount(data.discount);
-        setCouponMessage(`Coupon applied! ₹${data.discount} off.`);
+        if (totalPrice >= minAmount) {
+          setDiscount(discountAmount);
+          setCouponMessage(`Coupon applied! ₹${discountAmount} off.`);
+        } else {
+          setDiscount(0);
+          setCouponMessage(`Add items worth ₹${minAmount - totalPrice} more to use this coupon.`);
+        }
       } else {
         setDiscount(0);
-        setCouponMessage(`Error: ${data.message}`); 
+        setCouponMessage('Invalid coupon code.');
       }
     } catch (error) {
       console.error("Error applying coupon:", error);
       setDiscount(0);
-      setCouponMessage('Failed to connect to server.');
+      setCouponMessage('Error applying coupon.');
     }
   };
 
@@ -74,7 +82,7 @@ const Cart = () => {
       <div style={{ marginTop: '20px' }}>
         {cart.map((item) => (
           <div key={item.id} style={{ display: 'flex', alignItems: 'center', borderBottom: '1px solid #ccc', padding: '10px 0' }}>
-            <img src={item.image} alt={item.name} style={{ width: '80px', height: '80px', objectFit: 'cover', marginRight: '20px' }} />
+            <img src={(item as any).imageUrl || item.image} alt={item.name} style={{ width: '80px', height: '80px', objectFit: 'cover', marginRight: '20px' }} />
             <div style={{ flex: 1 }}>
               <h3>{item.name}</h3>
               <p>Quantity: {item.quantity}</p>
