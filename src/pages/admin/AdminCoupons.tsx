@@ -1,248 +1,180 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../data/firebase';
-import { collection, onSnapshot, addDoc, deleteDoc, doc, query } from 'firebase/firestore';
-
-export interface Coupon {
-  id: string;
-  code: string;
-  discount: number;      // The ₹ amount off
-  minAmount: number;     // The minimum cart value required
-  expiryDate: string;
-  isActive?: boolean;    
-}
+import { collection, addDoc, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { useToast } from '../../context/ToastContext';
 
 export default function AdminCoupons() {
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const { showToast } = useToast();
+  const [coupons, setCoupons] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   // Form State
-  const [isAdding, setIsAdding] = useState(false);
   const [code, setCode] = useState('');
   const [discount, setDiscount] = useState('');
   const [minAmount, setMinAmount] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [saving, setSaving] = useState(false);
 
-  // 1. Fetch Coupons
-  useEffect(() => {
-    const q = query(collection(db, 'coupons')); 
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const fetched: Coupon[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        fetched.push({
-          id: doc.id,
-          code: data.code || 'UNKNOWN',
-          discount: Number(data.discount) || 0,
-          minAmount: Number(data.minAmount) || 0,
-          expiryDate: data.expiryDate || '',
-        });
-      });
-      // Sort in memory
-      fetched.sort((a, b) => a.code.localeCompare(b.code));
+  // 1. Fetch all coupons on load
+  const fetchCoupons = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'coupons'));
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => fetched.push({ id: doc.id, ...doc.data() }));
       setCoupons(fetched);
       setLoading(false);
-    }, (err) => {
-      console.error("Error fetching coupons:", err);
-      setError("Failed to load coupons.");
+    } catch (error) {
+      console.error("Error fetching coupons:", error);
       setLoading(false);
-    });
+    }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    fetchCoupons();
   }, []);
 
-  // 2. Add Coupon
-  const handleAddCoupon = async (e: React.FormEvent) => {
+  // 2. Create a new coupon
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!code || !discount || !minAmount || !expiryDate) {
-      alert("Please fill all fields");
-      return;
-    }
+    setIsCreating(true);
 
-    setSaving(true);
     try {
-      const formattedCode = code.trim().toUpperCase();
+      // Check if code already exists
+      const existing = coupons.find(c => c.code === code.toUpperCase());
+      if (existing) {
+        showToast("A coupon with this code already exists!", "error");
+        setIsCreating(false);
+        return;
+      }
 
       await addDoc(collection(db, 'coupons'), {
-        code: formattedCode,
+        code: code.toUpperCase(),
         discount: Number(discount),
         minAmount: Number(minAmount),
-        expiryDate,
-        isActive: true,
-        createdAt: new Date().toISOString()
+        createdAt: new Date()
       });
 
-      // Reset form
+      showToast("Coupon created successfully!", "success");
       setCode('');
       setDiscount('');
       setMinAmount('');
-      setExpiryDate('');
-      setIsAdding(false);
-    } catch (err) {
-      console.error("Error adding coupon:", err);
-      alert("Failed to create coupon.");
+      fetchCoupons(); // Refresh the list
+    } catch (error) {
+      console.error("Error creating coupon:", error);
+      showToast("Failed to create coupon.", "error");
     } finally {
-      setSaving(false);
+      setIsCreating(false);
     }
   };
 
-  // 3. Delete Coupon
-  const handleDelete = async (id: string, codeName: string) => {
-    if (!window.confirm(`Delete coupon "${codeName}"?`)) return;
+  // 3. Delete a coupon
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this coupon?")) return;
     try {
       await deleteDoc(doc(db, 'coupons', id));
-    } catch (err) {
-      console.error("Error deleting coupon:", err);
-      alert("Failed to delete coupon.");
+      showToast("Coupon deleted.", "success");
+      fetchCoupons();
+    } catch (error) {
+      console.error("Error deleting coupon:", error);
+      showToast("Failed to delete coupon.", "error");
     }
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading coupons...</div>;
-  if (error) return <div style={{ padding: '40px', color: 'red', textAlign: 'center' }}>{error}</div>;
-
   return (
-    <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
-      
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: '0 0 8px 0' }}>Manage Coupons</h1>
-          <p style={{ margin: 0, color: '#6b7280' }}>Create and manage discount codes.</p>
-        </div>
-        <button 
-          onClick={() => setIsAdding(!isAdding)}
-          style={{ padding: '10px 20px', backgroundColor: isAdding ? '#6b7280' : '#10b981', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-        >
-          {isAdding ? 'Cancel' : '+ Create Coupon'}
-        </button>
-      </div>
+    <div style={{ padding: '40px', maxWidth: '1000px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <h1 style={{ fontSize: '28px', fontWeight: 'bold', marginBottom: '30px' }}>Manage Coupons</h1>
 
-      {/* Add Coupon Form */}
-      {isAdding && (
-        <form onSubmit={handleAddCoupon} style={{ backgroundColor: '#f8fafc', padding: '24px', borderRadius: '8px', marginBottom: '24px', border: '1px solid #e2e8f0', display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+      {/* CREATE COUPON FORM */}
+      <div style={{ backgroundColor: 'white', padding: '24px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '40px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>Create New Coupon</h2>
+        <form onSubmit={handleCreate} style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           
           <div style={{ flex: '1 1 200px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Coupon Code</label>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Coupon Code</label>
             <input 
-              required 
               type="text" 
-              placeholder="e.g. DASARAOFF"
               value={code} 
-              onChange={e => setCode(e.target.value)} 
+              onChange={(e) => setCode(e.target.value)} 
+              placeholder="e.g. WINTER20" 
+              required
               style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', textTransform: 'uppercase' }} 
             />
           </div>
 
-          <div style={{ flex: '1 1 120px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Discount (₹)</label>
+          <div style={{ flex: '1 1 150px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Discount (₹)</label>
             <input 
-              required 
               type="number" 
-              min="1"
-              placeholder="10"
               value={discount} 
-              onChange={e => setDiscount(e.target.value)} 
+              onChange={(e) => setDiscount(e.target.value)} 
+              placeholder="e.g. 50" 
+              required
               style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
             />
           </div>
 
-          <div style={{ flex: '1 1 120px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Min Amount (₹)</label>
+          <div style={{ flex: '1 1 150px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '4px' }}>Min Cart (₹)</label>
             <input 
-              required 
               type="number" 
-              min="0"
-              placeholder="15"
               value={minAmount} 
-              onChange={e => setMinAmount(e.target.value)} 
-              style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
-            />
-          </div>
-
-          <div style={{ flex: '1 1 180px' }}>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 'bold', marginBottom: '6px' }}>Expiry Date</label>
-            <input 
-              required 
-              type="date" 
-              value={expiryDate} 
-              onChange={e => setExpiryDate(e.target.value)} 
+              onChange={(e) => setMinAmount(e.target.value)} 
+              placeholder="e.g. 100" 
+              required
               style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px' }} 
             />
           </div>
 
           <button 
             type="submit" 
-            disabled={saving}
-            style={{ padding: '10px 24px', backgroundColor: saving ? '#9ca3af' : '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: saving ? 'not-allowed' : 'pointer', height: '42px' }}
+            disabled={isCreating}
+            style={{ padding: '10px 24px', backgroundColor: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: isCreating ? 'not-allowed' : 'pointer', height: '42px' }}
           >
-            {saving ? 'Saving...' : 'Save Coupon'}
+            {isCreating ? 'Creating...' : 'Create Coupon'}
           </button>
         </form>
-      )}
-
-      {/* Coupons Table */}
-      <div style={{ border: '1px solid #e5e7eb', borderRadius: '8px', overflow: 'hidden', backgroundColor: 'white' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
-            <tr>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Code</th>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Discount</th>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Min Amount</th>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Expiry Date</th>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151' }}>Status</th>
-              <th style={{ padding: '16px', fontSize: '14px', color: '#374151', textAlign: 'center' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {coupons.length === 0 ? (
-              <tr>
-                <td colSpan={6} style={{ padding: '30px', textAlign: 'center', color: '#6b7280' }}>
-                  No coupons created yet.
-                </td>
-              </tr>
-            ) : (
-              coupons.map((coupon) => {
-                const isExpired = new Date(coupon.expiryDate) < new Date();
-                return (
-                  <tr key={coupon.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                    <td style={{ padding: '16px', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '16px' }}>
-                      {coupon.code}
-                    </td>
-                    <td style={{ padding: '16px', fontWeight: 'bold', color: '#10b981' }}>
-                      ₹{coupon.discount} OFF
-                    </td>
-                    <td style={{ padding: '16px', color: '#6b7280' }}>
-                      ₹{coupon.minAmount}
-                    </td>
-                    <td style={{ padding: '16px', color: '#6b7280' }}>
-                      {coupon.expiryDate}
-                    </td>
-                    <td style={{ padding: '16px' }}>
-                      <span style={{ 
-                        padding: '4px 8px', borderRadius: '4px', fontSize: '12px', fontWeight: 'bold',
-                        backgroundColor: isExpired ? '#fee2e2' : '#dcfce7',
-                        color: isExpired ? '#991b1b' : '#166534'
-                      }}>
-                        {isExpired ? 'Expired' : 'Active'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '16px', textAlign: 'center' }}>
-                      <button 
-                        onClick={() => handleDelete(coupon.id, coupon.code)}
-                        style={{ backgroundColor: '#ef4444', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
       </div>
+
+      {/* LIST OF COUPONS */}
+      <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '16px' }}>Active Coupons</h2>
+      {loading ? (
+        <p>Loading coupons...</p>
+      ) : coupons.length === 0 ? (
+        <p style={{ color: '#6b7280' }}>No coupons found. Create one above!</p>
+      ) : (
+        <div style={{ backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb', color: '#374151', fontSize: '14px' }}>
+                <th style={{ padding: '16px' }}>Code</th>
+                <th style={{ padding: '16px' }}>Discount</th>
+                <th style={{ padding: '16px' }}>Min Cart</th>
+                <th style={{ padding: '16px', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {coupons.map((c) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb', fontSize: '14px' }}>
+                  <td style={{ padding: '16px', fontWeight: 'bold' }}>
+                    <span style={{ backgroundColor: '#fef3c7', color: '#92400e', padding: '4px 8px', borderRadius: '4px', border: '1px solid #fcd34d' }}>
+                      {c.code}
+                    </span>
+                  </td>
+                  <td style={{ padding: '16px', color: '#16a34a', fontWeight: 'bold' }}>₹{c.discount} OFF</td>
+                  <td style={{ padding: '16px' }}>₹{c.minAmount}</td>
+                  <td style={{ padding: '16px', textAlign: 'right' }}>
+                    <button 
+                      onClick={() => handleDelete(c.id)}
+                      style={{ backgroundColor: '#fee2e2', color: '#991b1b', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
