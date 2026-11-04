@@ -45,14 +45,18 @@ export default function Invoice() {
         <div style={{ textAlign: 'right' }}>
           <h2 style={{ margin: 0 }}>INVOICE</h2>
           <p style={{ margin: '5px 0' }}><strong>Order ID:</strong> #{order.id?.slice(-6).toUpperCase()}</p>
-          <p style={{ margin: '5px 0' }}><strong>Date:</strong> {new Date(order.createdAt).toLocaleDateString()}</p>
+          // 1. Fix the Date in the Header
+<p style={{ margin: '5px 0' }}>
+  <strong>Date:</strong> {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString()}
+</p>
         </div>
       </div>
 
       <div style={{ marginBottom: '30px' }}>
         <h3 style={{ marginBottom: '10px' }}>Billed To:</h3>
         <p style={{ margin: 0 }}><strong>{user?.displayName || user?.email?.split('@')[0]}</strong></p>
-        <p style={{ margin: 0, color: 'gray' }}>{order.address || 'Address provided at checkout'}</p>
+       // 2. Fix the Address in the "Billed To" section
+<p style={{ margin: 0, color: 'gray' }}>{order.shippingAddress || order.address || 'Address provided at checkout'}</p>
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '30px' }}>

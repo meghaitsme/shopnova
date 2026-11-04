@@ -1,101 +1,133 @@
 import { useState, useEffect } from 'react';
 import { db } from '../../data/firebase';
-import { collection, getDocs, doc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { useToast } from '../../context/ToastContext';
 
-const AdminOrders = () => {
+export default function AdminOrders() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
 
-  // Fetch all orders
-  const fetchOrders = async () => {
-    try {
-      const q = query(collection(db, "orders"), orderBy("createdAt", "desc"));
-      const querySnapshot = await getDocs(q);
-      const ordersData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setOrders(ordersData);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // 1. Fetch ALL orders from all users
   useEffect(() => {
-    fetchOrders();
+    const q = query(collection(db, 'orders'), orderBy('createdAt', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const fetched: any[] = [];
+      snapshot.forEach((doc) => {
+        fetched.push({ id: doc.id, ...doc.data() });
+      });
+      setOrders(fetched);
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching orders:", error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Update order status
+  // 2. Function to update the status
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
-      const orderRef = doc(db, "orders", orderId);
+      const orderRef = doc(db, 'orders', orderId);
       await updateDoc(orderRef, { status: newStatus });
-      
-      // Update the UI instantly
-      setOrders(orders.map(order => 
-        order.id === orderId ? { ...order, status: newStatus } : order
-      ));
+      showToast(`Order status updated to ${newStatus}`, "success");
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Failed to update status");
+      showToast("Failed to update order status", "error");
     }
   };
 
-  if (loading) return <div style={{ padding: '50px' }}>Loading orders...</div>;
+  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading all orders...</div>;
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1000px', margin: '0 auto' }}>
-      <h1>Manage Orders</h1>
-      <p>Total Orders: {orders.length}</p>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
-        {orders.map((order) => (
-          <div key={order.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: '#fff' }}>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '10px' }}>
-              <div>
-                <strong>Order ID:</strong> {order.id} <br/>
-                <strong>Customer:</strong> {order.userEmail} <br/>
-                <strong>Date:</strong> {order.createdAt?.toDate().toLocaleString()}
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <strong>Total:</strong> ₹{order.totalAmount} <br/>
-                <strong>Status:</strong> 
-                <select 
-                  value={order.status} 
-                  onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                  style={{ marginLeft: '10px', padding: '5px', borderRadius: '4px' }}
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Shipped">Shipped</option>
-                  <option value="Delivered">Delivered</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <strong>Shipping Details:</strong>
-              <p style={{ margin: '5px 0' }}>{order.shippingAddress}</p>
-              <p style={{ margin: '5px 0' }}>Phone: {order.phoneNumber}</p>
-            </div>
-
-            <div style={{ marginTop: '10px' }}>
-              <strong>Items:</strong>
-              <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
-                {order.items.map((item: any, index: number) => (
-                  <li key={index}>{item.name} (x{item.quantity}) - ₹{item.price}</li>
-                ))}
-              </ul>
-            </div>
-
-          </div>
-        ))}
+    <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 'bold', margin: 0 }}>Manage Orders</h1>
+        <span style={{ backgroundColor: '#e5e7eb', padding: '6px 12px', borderRadius: '20px', fontWeight: 'bold', fontSize: '14px' }}>
+          Total Orders: {orders.length}
+        </span>
       </div>
+
+      {orders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '50px', backgroundColor: '#f9fafb', borderRadius: '8px' }}>
+          <p style={{ color: '#6b7280' }}>No orders have been placed yet.</p>
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto', backgroundColor: 'white', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb', color: '#374151', fontSize: '14px' }}>
+                <th style={{ padding: '16px' }}>Order Details</th>
+                <th style={{ padding: '16px' }}>Customer</th>
+                <th style={{ padding: '16px' }}>Items</th>
+                <th style={{ padding: '16px' }}>Total</th>
+                <th style={{ padding: '16px' }}>Status</th>
+                <th style={{ padding: '16px' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order.id} style={{ borderBottom: '1px solid #e5e7eb', fontSize: '14px' }}>
+                  
+                  {/* Order ID & Date */}
+                  <td style={{ padding: '16px' }}>
+                    <p style={{ margin: '0 0 4px 0', fontWeight: 'bold', fontFamily: 'monospace' }}>#{order.id.slice(-6).toUpperCase()}</p>
+                    <p style={{ margin: 0, color: '#6b7280', fontSize: '12px' }}>
+                      {order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString('en-IN') : 'N/A'}
+                    </p>
+                  </td>
+
+                  {/* Customer Info */}
+                  <td style={{ padding: '16px' }}>
+                    <p style={{ margin: '0 0 4px 0', fontWeight: 'bold' }}>{order.customerEmail || order.userEmail}</p>
+                    <p style={{ margin: 0, color: '#6b7280', fontSize: '12px' }}>{order.phoneNumber || order.phone || 'No phone'}</p>
+                  </td>
+
+                  {/* Items Count */}
+                  <td style={{ padding: '16px' }}>
+                    <span style={{ backgroundColor: '#f3f4f6', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold' }}>
+                      {order.items?.length || 0} items
+                    </span>
+                  </td>
+
+                  {/* Total Amount */}
+                  <td style={{ padding: '16px', fontWeight: 'bold', color: '#111827' }}>
+                    ₹{Number(order.totalAmount || order.total || 0).toFixed(2)}
+                  </td>
+
+                  {/* Current Status Badge */}
+                  <td style={{ padding: '16px' }}>
+                    <span style={{ 
+                      padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+                      backgroundColor: order.status === 'Delivered' ? '#dcfce7' : order.status === 'Cancelled' ? '#fee2e2' : order.status === 'Shipped' ? '#dbeafe' : '#fef9c3',
+                      color: order.status === 'Delivered' ? '#166534' : order.status === 'Cancelled' ? '#991b1b' : order.status === 'Shipped' ? '#1e40af' : '#854d0e'
+                    }}>
+                      {order.status || 'Pending'}
+                    </span>
+                  </td>
+
+                  {/* Dropdown to Change Status */}
+                  <td style={{ padding: '16px' }}>
+                    <select 
+                      value={order.status || 'Pending'} 
+                      onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                      style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', backgroundColor: 'white', cursor: 'pointer', fontWeight: 'bold' }}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Shipped">Shipped</option>
+                      <option value="Delivered">Delivered</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
+                  </td>
+
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
-};
-
-export default AdminOrders;
+}

@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react'; // 👈 1. Add useEffect here
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { db } from '../../data/firebase'; // Make sure this path is correct
+import { db } from '../../data/firebase'; 
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 
 const Checkout = () => {
@@ -19,13 +19,32 @@ const Checkout = () => {
   const [discount, setDiscount] = useState(0);
   const [couponMessage, setCouponMessage] = useState('');
   
+  // 👈 2. ADD THE NEW STATE HERE
+  const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
+  
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // 👈 3. ADD THE USEEFFECT HERE
+  useEffect(() => {
+    const fetchCoupons = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'coupons'));
+        const coupons = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setAvailableCoupons(coupons);
+      } catch (error) {
+        console.error("Error fetching coupons:", error);
+      }
+    };
+    fetchCoupons();
+  }, []);
 
   // Calculate prices
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
   const shipping = 50; // Fixed shipping cost
   const finalTotal = (subtotal + shipping) - discount > 0 ? (subtotal + shipping) - discount : 0;
+
+  // ... rest of your code (handleApplyCoupon, handlePlaceOrder, etc.)
 
   const handleApplyCoupon = async () => {
     if (!couponCode || !user) return;
@@ -190,31 +209,56 @@ const Checkout = () => {
           <span>₹{finalTotal.toFixed(2)}</span>
         </div>
 
-        {/* Coupon Section */}
-<div style={{ marginTop: '30px' }}>
-  <h4 style={{ marginBottom: '10px' }}>Have a coupon?</h4>
-  <div style={{ display: 'flex', gap: '10px' }}>
-    <input 
-      type="text" 
-      placeholder="ENTER CODE" 
-      value={couponCode} 
-      onChange={(e) => setCouponCode(e.target.value)} 
-      style={{ flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '5px' }}
-    />
-    <button 
-      type="button"  // 👈 This must be type="button" so it doesn't submit the form
-      onClick={handleApplyCoupon} // 👈 This must call the function
-      style={{ backgroundColor: '#334155', color: 'white', padding: '8px 15px', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
-    >
-      Apply
-    </button>
-  </div>
-  {couponMessage && (
-    <p style={{ color: discount > 0 ? 'green' : 'red', marginTop: '10px', fontSize: '14px' }}>
-      {couponMessage}
-    </p>
-  )}
-</div>
+              {/* Coupon Section */}
+        <div style={{ marginTop: '30px' }}>
+          <h4 style={{ marginBottom: '10px' }}>Have a coupon?</h4>
+          
+          {/* 👈 4. ADD THIS BLOCK TO SHOW AVAILABLE OFFERS */}
+          {availableCoupons.length > 0 && (
+            <div style={{ marginBottom: '15px' }}>
+              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px' }}>Available Offers</p>
+              {availableCoupons.map((c) => (
+                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fef9c3', padding: '10px', borderRadius: '6px', marginTop: '8px', border: '1px dashed #ca8a04' }}>
+                  <div>
+                    <span style={{ fontWeight: 'bold', color: '#854d0e', display: 'block' }}>{c.code}</span>
+                    <span style={{ fontSize: '12px', color: '#854d0e' }}>₹{c.discount} OFF</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setCouponCode(c.code)} 
+                    style={{ background: 'none', border: '1px solid #ca8a04', color: '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* The Input Box */}
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input 
+              type="text" 
+              placeholder="ENTER CODE" 
+              value={couponCode} 
+              onChange={(e) => setCouponCode(e.target.value)} 
+              style={{ flex: 1, padding: '8px', border: '1px solid #ccc', borderRadius: '5px' }}
+            />
+            <button 
+              type="button" 
+              onClick={handleApplyCoupon} 
+              style={{ backgroundColor: '#334155', color: 'white', padding: '8px 15px', border: 'none', borderRadius: '5px', cursor: 'pointer' }}
+            >
+              Apply
+            </button>
+          </div>
+          
+          {couponMessage && (
+            <p style={{ color: discount > 0 ? 'green' : 'red', marginTop: '10px', fontSize: '14px' }}>
+              {couponMessage}
+            </p>
+          )}
+        </div>
       </div>
 
     </div>

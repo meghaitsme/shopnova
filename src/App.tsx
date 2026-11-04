@@ -74,10 +74,10 @@ function AppRoutes() {
       
       {/* We only need AdminOrders once, and only for admins */}
       <Route path="/admin/orders" element={isAdmin ? <AdminOrders /> : <Navigate to="/login" />} />
-      
       <Route path="/admin/reviews" element={isAdmin ? <AdminReviews /> : <Navigate to="/login" />} />
       <Route path="/admin/subscribers" element={isAdmin ? <AdminSubscribers /> : <Navigate to="/login" />} />
       <Route path="/admin/edit-product/:id" element={isAdmin ? <EditProduct /> : <Navigate to="/login" />} />
+      
       <Route path="/admin/messages" element={isAdmin ? <AdminMessages /> : <Navigate to="/login" />} />
     </Routes>
   );
