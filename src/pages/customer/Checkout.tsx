@@ -41,7 +41,7 @@ const Checkout = () => {
 
   // Calculate prices
   const subtotal = cart.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const shipping = 50; // Fixed shipping cost
+  const shipping = 2; // Fixed shipping cost
   const finalTotal = (subtotal + shipping) - discount > 0 ? (subtotal + shipping) - discount : 0;
 
   // ... rest of your code (handleApplyCoupon, handlePlaceOrder, etc.)
@@ -55,8 +55,8 @@ const Checkout = () => {
 
       if (!querySnapshot.empty) {
         const couponData = querySnapshot.docs[0].data();
-        const discountAmount = couponData.discount;
-        const minAmount = couponData.minAmount;
+        const minAmount = Number(couponData.minAmount) || 0;
+const discountAmount = Number(couponData.discount) || 0;
 
         // 👈 CHECK IF ALREADY USED
         const qOrders = query(
@@ -214,26 +214,27 @@ const Checkout = () => {
           <h4 style={{ marginBottom: '10px' }}>Have a coupon?</h4>
           
           {/* 👈 4. ADD THIS BLOCK TO SHOW AVAILABLE OFFERS */}
-          {availableCoupons.length > 0 && (
-            <div style={{ marginBottom: '15px' }}>
-              <p style={{ fontSize: '12px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px' }}>Available Offers</p>
-              {availableCoupons.map((c) => (
-                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fef9c3', padding: '10px', borderRadius: '6px', marginTop: '8px', border: '1px dashed #ca8a04' }}>
-                  <div>
-                    <span style={{ fontWeight: 'bold', color: '#854d0e', display: 'block' }}>{c.code}</span>
-                    <span style={{ fontSize: '12px', color: '#854d0e' }}>₹{c.discount} OFF</span>
-                  </div>
-                  <button 
-                    type="button"
-                    onClick={() => setCouponCode(c.code)} 
-                    style={{ background: 'none', border: '1px solid #ca8a04', color: '#854d0e', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}
-                  >
-                    Apply
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+  {/* Available Offers List */}
+{availableCoupons.length > 0 && (
+  <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+    <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px' }}>Available Offers</p>
+    {availableCoupons.map((c) => (
+      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fffbeb', padding: '12px 16px', borderRadius: '8px', marginTop: '8px', border: '1px dashed #f59e0b' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ backgroundColor: '#fef3c7', color: '#92400e', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', fontSize: '14px', border: '1px solid #fcd34d' }}>{c.code}</span>
+          <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>₹{Number(c.discount) || 0} OFF</span>
+        </div>
+        <button 
+          type="button"
+          onClick={() => setCouponCode(c.code)} 
+          style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}
+        >
+          Apply
+        </button>
+      </div>
+    ))}
+  </div>
+)}
 
           {/* The Input Box */}
           <div style={{ display: 'flex', gap: '10px' }}>

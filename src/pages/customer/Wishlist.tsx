@@ -21,7 +21,7 @@ export default function Wishlist() {
     }
 
     // We look for wishlist items belonging to this user's email
-    const q = query(collection(db, 'wishlist'), where('userEmail', '==', user.email));
+    const q = query(collection(db, 'wishlist'), where('userId', '==', user.uid));
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetched: any[] = [];
