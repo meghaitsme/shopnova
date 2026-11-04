@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext'; // Added to get real user ID
 import { Link, useNavigate } from 'react-router-dom';
 
 const Cart = () => {
   const { cart, removeFromCart, clearCart } = useCart();
+  const { user } = useAuth(); // Get logged-in user
   const navigate = useNavigate();
   
   // Coupon States
@@ -22,11 +24,14 @@ const Cart = () => {
     try {
       setCouponMessage('Applying...');
       
-      // You'll need to pass a real user ID and order ID in production
-      const userId = "buyer2026"; 
+      // Use real user ID, fallback to guest if not logged in
+      const userId = user?.uid || "guest"; 
       const orderId = "order_" + Date.now(); 
 
-      const response = await fetch("http://localhost:5000/api/coupon/apply", {
+      // Use environment variable for API URL (Vercel will inject this)
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
+      const response = await fetch(`${API_URL}/api/coupon/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -44,7 +49,6 @@ const Cart = () => {
         setCouponMessage(`Coupon applied! ₹${data.discount} off.`);
       } else {
         setDiscount(0);
-        // This will display "EXPIRED", "INVALID_CODE", or "MIN_CART_NOT_MET" from your backend
         setCouponMessage(`Error: ${data.message}`); 
       }
     } catch (error) {
