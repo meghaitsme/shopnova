@@ -111,9 +111,12 @@ export default function PDP() {
         setWishlistDocId(null);
       } else {
         const docRef = await addDoc(collection(db, 'wishlist'), {
-          userEmail: user.email, productId: product._id, name: product.name, price: Number(product.price),
-          imageUrl: product.imageUrl || product.image || '', addedAt: new Date().toISOString()
-        });
+  userEmail: user?.email, // Save the email exactly as it is
+  productId: product.id,
+  name: product.name,
+  price: product.price,
+  imageUrl: product.imageUrl || product.image
+});
         setWishlistDocId(docRef.id);
       }
     } catch (err) { showToast("Failed to update wishlist.", "error"); }

@@ -14,14 +14,19 @@ export default function Wishlist() {
   const [loading, setLoading] = useState(true);
 
   // 1. Fetch User's Wishlist
-  useEffect(() => {
-    if (!user?.email) {
+   useEffect(() => {
+    if (!user || !user.email) {
       setLoading(false);
       return;
     }
 
-    // We look for wishlist items belonging to this user's email
-    const q = query(collection(db, 'wishlist'), where('userId', '==', user.uid));
+      // Using .toLowerCase() protects against uppercase/lowercase email mismatches
+    const userEmailLower = user.email.toLowerCase();
+
+    const q = query(
+      collection(db, 'wishlist'), 
+      where('userEmail', '==', userEmailLower)
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const fetched: any[] = [];
