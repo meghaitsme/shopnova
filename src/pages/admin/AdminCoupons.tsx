@@ -47,11 +47,13 @@ export default function AdminCoupons() {
       }
 
       await addDoc(collection(db, 'coupons'), {
-        code: code.toUpperCase(),
-        discount: Number(discount),
-        minAmount: Number(minAmount),
-        createdAt: new Date()
-      });
+  code: code.toUpperCase(),
+  discountType: "fixed",           // Added to match your db
+  discountValue: Number(discount), // Changed from 'discount'
+  minAmount: Number(minAmount),
+  expiryDate: "2030-12-31",        // Added default expiry
+  createdAt: new Date()
+});
 
       showToast("Coupon created successfully!", "success");
       setCode('');

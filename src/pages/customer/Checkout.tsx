@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'; // 👈 1. Add useEffect here
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
@@ -19,13 +19,13 @@ const Checkout = () => {
   const [discount, setDiscount] = useState(0);
   const [couponMessage, setCouponMessage] = useState('');
   
-  // 👈 2. ADD THE NEW STATE HERE
+  // Available Coupons State
   const [availableCoupons, setAvailableCoupons] = useState<any[]>([]);
   
   // Processing State
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 👈 3. ADD THE USEEFFECT HERE
+  // Fetch Available Coupons
   useEffect(() => {
     const fetchCoupons = async () => {
       try {
@@ -44,8 +44,6 @@ const Checkout = () => {
   const shipping = 2; // Fixed shipping cost
   const finalTotal = (subtotal + shipping) - discount > 0 ? (subtotal + shipping) - discount : 0;
 
-  // ... rest of your code (handleApplyCoupon, handlePlaceOrder, etc.)
-
   const handleApplyCoupon = async () => {
     if (!couponCode || !user) return;
     
@@ -55,10 +53,12 @@ const Checkout = () => {
 
       if (!querySnapshot.empty) {
         const couponData = querySnapshot.docs[0].data();
+        
+        // 🚨 FIX: Read discountValue and minAmount (which defaults to 0 if missing)
+        const discountAmount = Number(couponData.discountValue) || 0;
         const minAmount = Number(couponData.minAmount) || 0;
-const discountAmount = Number(couponData.discount) || 0;
 
-        // 👈 CHECK IF ALREADY USED
+        // Check if already used
         const qOrders = query(
           collection(db, "orders"), 
           where("userId", "==", user.uid),
@@ -69,7 +69,7 @@ const discountAmount = Number(couponData.discount) || 0;
         if (!pastOrders.empty) {
           setDiscount(0);
           setCouponMessage("You have already used this coupon.");
-          return; // Stop right here
+          return; 
         }
 
         // Check minimum amount
@@ -104,14 +104,14 @@ const discountAmount = Number(couponData.discount) || 0;
     setIsProcessing(true);
 
     try {
-           const orderData = {
+      const orderData = {
         userId: user.uid,
         customerEmail: user.email,
         items: cart,
         subtotal: subtotal,
         shipping: shipping,
         discountApplied: discount,
-        couponUsed: discount > 0 ? couponCode.toUpperCase() : null, // 👈 SAVE IT HERE
+        couponUsed: discount > 0 ? couponCode.toUpperCase() : null, 
         totalAmount: finalTotal,
         shippingAddress: address,
         phoneNumber: phone,
@@ -209,32 +209,31 @@ const discountAmount = Number(couponData.discount) || 0;
           <span>₹{finalTotal.toFixed(2)}</span>
         </div>
 
-              {/* Coupon Section */}
+        {/* Coupon Section */}
         <div style={{ marginTop: '30px' }}>
           <h4 style={{ marginBottom: '10px' }}>Have a coupon?</h4>
           
-          {/* 👈 4. ADD THIS BLOCK TO SHOW AVAILABLE OFFERS */}
-  {/* Available Offers List */}
-{availableCoupons.length > 0 && (
-  <div style={{ marginTop: '15px', marginBottom: '15px' }}>
-    <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px' }}>Available Offers</p>
-    {availableCoupons.map((c) => (
-      <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fffbeb', padding: '12px 16px', borderRadius: '8px', marginTop: '8px', border: '1px dashed #f59e0b' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ backgroundColor: '#fef3c7', color: '#92400e', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', fontSize: '14px', border: '1px solid #fcd34d' }}>{c.code}</span>
-          <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>₹{Number(c.discount) || 0} OFF</span>
-        </div>
-        <button 
-          type="button"
-          onClick={() => setCouponCode(c.code)} 
-          style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}
-        >
-          Apply
-        </button>
-      </div>
-    ))}
-  </div>
-)}
+          {/* Available Offers List */}
+          {availableCoupons.length > 0 && (
+            <div style={{ marginTop: '15px', marginBottom: '15px' }}>
+              <p style={{ fontSize: '13px', fontWeight: 'bold', color: '#6b7280', textTransform: 'uppercase', marginBottom: '8px' }}>Available Offers</p>
+              {availableCoupons.map((c) => (
+                <div key={c.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fffbeb', padding: '12px 16px', borderRadius: '8px', marginTop: '8px', border: '1px dashed #f59e0b' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ backgroundColor: '#fef3c7', color: '#92400e', fontWeight: 'bold', padding: '4px 8px', borderRadius: '4px', fontSize: '14px', border: '1px solid #fcd34d' }}>{c.code}</span>
+                    <span style={{ fontSize: '14px', color: '#4b5563', fontWeight: '500' }}>₹{Number(c.discountValue) || 0} OFF</span>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setCouponCode(c.code)} 
+                    style={{ background: 'none', border: 'none', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', fontSize: '14px' }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* The Input Box */}
           <div style={{ display: 'flex', gap: '10px' }}>
