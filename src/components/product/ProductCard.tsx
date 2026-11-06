@@ -1,23 +1,79 @@
 import { Link } from 'react-router-dom';
+import type { MouseEvent } from 'react';
 import type { Product } from '../../types';
 import { formatPrice } from '../../utils/format';
 
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { useAuth } from '../../context/AuthContext';
+import { db, auth } from '../../data/firebase';
+
 export default function ProductCard({ product }: { product: Product }) {
   
-  // 👈 ADD THE FUNCTION HERE (Inside the component, before return)
-  const addToWishlist = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevents the Link from triggering
-    
-    const currentWishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
-    
-    if (!currentWishlist.find((item: any) => item._id === product._id)) {
-      currentWishlist.push(product);
-      localStorage.setItem('wishlist', JSON.stringify(currentWishlist));
-      alert('Added to wishlist! ❤️');
-    } else {
-      alert('Already in wishlist!');
+  const { user } = useAuth();
+
+const addToWishlist = async (
+  e: MouseEvent<HTMLButtonElement>
+) => {
+
+  e.preventDefault();
+  e.stopPropagation();
+
+  if (!user?.uid) {
+    alert('Please login first!');
+    return;
+  }
+
+  try {
+
+  console.log("========== WISHLIST DEBUG ==========");
+
+  console.log("Firebase User:", auth.currentUser);
+
+  console.log("Context User:", user);
+
+  console.log("User UID:", user?.uid);
+
+  console.log("Firebase Auth UID:", auth.currentUser?.uid);
+
+  console.log("Product ID:", product._id);
+
+  console.log("Firebase Project:", "shopnova-native");
+
+  const wishlistId = `${user.uid}_${product._id}`;
+
+  console.log("Wishlist Document ID:", wishlistId);
+
+  await setDoc(
+    doc(db, 'wishlist', wishlistId),
+    {
+      userId: user.uid,
+      productId: product._id,
+      name: product.name,
+      price: product.price,
+      imageUrl: product.image || '',
+      category: product.category || 'General',
+      createdAt: serverTimestamp()
     }
-  };
+  );
+
+  console.log("SUCCESS: Wishlist saved!");
+
+  alert("Added to Wishlist ❤️");
+
+} catch (error: any) {
+
+  console.error("========== WISHLIST ERROR ==========");
+
+  console.error("Error Code:", error.code);
+
+  console.error("Error Message:", error.message);
+
+  console.error("Full Error:", error);
+
+  alert(`Wishlist Error: ${error.code || error.message}`);
+
+}
+};
 
   return (
     <div style={{ 

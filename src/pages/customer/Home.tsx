@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { db } from '../../data/firebase';
-import { collection, limit, query, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc } from 'firebase/firestore';
 import { formatPrice } from '../../utils/format';
 import { useToast } from '../../context/ToastContext';
 
@@ -13,63 +13,134 @@ export default function Home() {
   // Newsletter State
   const [email, setEmail] = useState('');
   const [subscribing, setSubscribing] = useState(false);
-  const { showToast } = useToast();
+  const { showToast } = useToast();   
 
-  useEffect(() => {
-    // 1. Fetch Latest Products (Featured) - Independent from Orders
-    const qFeatured = query(collection(db, 'products'), limit(4));
-    const unsubFeatured = onSnapshot(qFeatured, (snapshot) => {
-      const fetched: any[] = [];
-      snapshot.forEach((doc) => {
-        fetched.push({ id: doc.id, ...doc.data() });
-      });
-      setFeaturedProducts(fetched);
-      setLoading(false); // ✅ This ensures the loading screen goes away!
-    }, (error) => {
-      console.error("Error fetching featured products:", error);
-      setLoading(false);
-    });
+useEffect(() => {
+  let isMounted = true;
 
-    // 2. Fetch Orders & Calculate Bestsellers (Wrapped in try/catch internally)
-    const unsubOrders = onSnapshot(collection(db, 'orders'), (snapshot) => {
+  const API_BASE_URL = (
+    import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  ).replace(/\/$/, '');
+
+  // 1. Fetch Featured Products from MongoDB
+  const fetchFeaturedProducts = async () => {
+    try {
+      console.log('Fetching products from MongoDB...');
+      console.log('API URL:', `${API_BASE_URL}/api/products?limit=4`);
+
+      const response = await fetch(
+        `${API_BASE_URL}/api/products?limit=4`
+      );
+
+      console.log('Products API Status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(
+          `Products API failed: ${response.status} ${response.statusText}`
+        );
+      }
+
+      const data = await response.json();
+
+      console.log('MongoDB API Response:', data);
+
+      const products = Array.isArray(data.items)
+        ? data.items
+        : [];
+
+      const formattedProducts = products.map((product: any) => ({
+        ...product,
+        id: product._id
+      }));
+
+      if (isMounted) {
+        setFeaturedProducts(formattedProducts);
+        console.log(
+          'Featured products loaded:',
+          formattedProducts.length
+        );
+      }
+
+    } catch (error) {
+      console.error('MongoDB Product Fetch Error:', error);
+
+      if (isMounted) {
+        setFeaturedProducts([]);
+      }
+    } finally {
+      if (isMounted) {
+        setLoading(false);
+      }
+    }
+  };
+
+  fetchFeaturedProducts();
+
+  // 2. Fetch Bestsellers from Existing Firebase Orders
+  const unsubOrders = onSnapshot(
+    collection(db, 'orders'),
+    (snapshot) => {
       try {
-        const productSales: Record<string, { count: number, productData: any }> = {};
-        
-        snapshot.forEach((doc) => {
-          const order = doc.data();
-          if (order.status !== 'Cancelled' && order.items) {
+        const productSales: Record<
+          string,
+          { count: number; productData: any }
+        > = {};
+
+        snapshot.forEach((document) => {
+          const order = document.data();
+
+          if (
+            order.status !== 'Cancelled' &&
+            Array.isArray(order.items)
+          ) {
             order.items.forEach((item: any) => {
-              // Safely get ID and quantity to prevent NaN
               const itemId = item.productId || item._id;
-              const qty = Number(item.quantity) || 1; 
+              const qty = Number(item.quantity) || 1;
 
               if (itemId) {
                 if (!productSales[itemId]) {
-                  productSales[itemId] = { count: 0, productData: item };
+                  productSales[itemId] = {
+                    count: 0,
+                    productData: item
+                  };
                 }
+
                 productSales[itemId].count += qty;
               }
             });
           }
         });
 
-        // Sort by highest count and take top 4
         const topSelling = Object.values(productSales)
           .sort((a, b) => b.count - a.count)
           .slice(0, 4)
-          .map((item) => ({ ...item.productData, salesCount: item.count }));
+          .map((item) => ({
+            ...item.productData,
+            salesCount: item.count
+          }));
 
-        setBestsellers(topSelling);
-      } catch (err) {
-        console.error("Bestseller calculation failed", err);
+        if (isMounted) {
+          setBestsellers(topSelling);
+        }
+
+        console.log('Bestsellers loaded:', topSelling.length);
+
+      } catch (error) {
+        console.error('Bestseller calculation error:', error);
       }
-    });
+    },
+    (error) => {
+      console.error('Firebase Orders Error:', error);
+    }
+  );
 
-    return () => {
-      unsubFeatured();
-      unsubOrders();
-    };
-  }, []);
+  return () => {
+    isMounted = false;
+    unsubOrders();
+  };
+
+}, []);
+
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();

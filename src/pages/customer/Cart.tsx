@@ -66,14 +66,60 @@ const Cart = () => {
     }
   };
 
-  if (cart.length === 0) {
-    return (
-      <div style={{ padding: '50px', textAlign: 'center' }}>
-        <h2>Your Cart is Empty</h2>
-        <Link to="/" style={{ color: 'blue', textDecoration: 'underline' }}>Go back to shopping</Link>
-      </div>
-    );
-  }
+ if (cart.length === 0) {
+
+  return (
+
+    <div style={{
+      maxWidth: '1200px',
+      minHeight: '350px',
+      margin: '40px auto',
+      padding: '40px 24px',
+
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+
+      textAlign: 'center',
+
+      backgroundColor: '#f9fafb',
+      border: '1px solid #e5e7eb',
+      borderRadius: '10px'
+    }}>
+
+      <h2 style={{
+        fontSize: '28px',
+        marginBottom: '15px'
+      }}>
+        Your Cart is Empty
+      </h2>
+
+      <p style={{
+        color: '#6b7280',
+        marginBottom: '24px'
+      }}>
+        Your shopping cart is waiting for products.
+      </p>
+
+      <Link
+        to="/products"
+        style={{
+          padding: '12px 24px',
+          backgroundColor: '#111827',
+          color: 'white',
+          textDecoration: 'none',
+          borderRadius: '6px',
+          fontWeight: 'bold'
+        }}
+      >
+        Explore Products
+      </Link>
+
+    </div>
+
+  );
+}
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
